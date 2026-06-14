@@ -1,0 +1,9 @@
+[submodule "fork/claude-plugins-official"]
+	path = fork/claude-plugins-official
+	url = https://github.com/anthropics/claude-plugins-official.git
+[submodule "fork/ECC"]
+	path = fork/ECC
+	url = https://github.com/affaan-m/ECC.git
+[submodule "fork/superpowers"]
+	path = fork/superpowers
+	url = https://github.com/obra/superpowers.git
