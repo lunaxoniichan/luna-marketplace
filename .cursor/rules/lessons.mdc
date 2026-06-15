@@ -1,0 +1,14 @@
+---
+description: Lessons — do not repeat past mistakes
+alwaysApply: true
+---
+
+# Lessons — do not repeat
+
+Standing rules captured from corrections. When the user rejects or corrects an approach, append
+**one line**: what to avoid · what to do instead · (date). Mirror of `.claude/rules/lessons.md` —
+keep both in sync.
+
+Format: `- AVOID <thing> — DO <alternative> (YYYY-MM-DD)`
+
+<!-- no lessons yet -->

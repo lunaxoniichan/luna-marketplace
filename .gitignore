@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+*.log
+__pycache__/
+*.pyc
+
+# Hook runtime artifacts (never commit)
+.gitnexus/
+.claude/.luna-cache/
+.claude/.no-reflect

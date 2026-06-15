@@ -1,14 +1,14 @@
 # Luna Agent Kit — System Design
 
-> Phase 0 artifact. Describes the **target** architecture. Components are planned unless this repo
-> already contains them. Source of truth for the build is `docs/TOOLS_LIST.md`.
+> Phases 1–4 built. Describes the architecture now realized in the repo. Source of truth for the
+> component inventory is `docs/TOOLS_LIST.md`.
 
 ## 1. Purpose
 
 A local-first Claude Code plugin for **daily, gated vibe coding**. It vendors the good parts of
 Superpowers (discipline skills), ECC (domain knowledge), and claude-plugins-official (canonical
-plugin/hook patterns), while adding the project-local state those plugins lack: decision memory,
-plan↔commit traceability, and GitNexus index freshness.
+plugin/hook patterns), while adding the project-local state those plugins lack: plan↔commit traceability,
+GitNexus index freshness, and a consistent gated workflow.
 
 Design tenets:
 
@@ -31,7 +31,6 @@ flowchart TB
     subgraph boot [Session bootstrap - session-start hook]
         SS["session-start hook"]
         SS -->|inject| ULW["workflow-guide skill"]
-        SS -->|inject| DEC["docs/DECISIONS.md"]
         SS -->|check + async auto-reindex| GNX["GitNexus freshness"]
     end
     subgraph cfg [Project config - one markdown file]
@@ -43,17 +42,28 @@ flowchart TB
         EX --> TD[dev-tdd] --> DB[dev-debug] --> RC[review-code]
         RC --> RS[review-simplify] --> CM[dev-commit]
     end
-    subgraph guards [Hooks enforce invariants]
-        DG["decision-guard (PreToolUse denylist)"]
+    subgraph guards [Hooks - remind + block, never orchestrate]
+        BNV["block-no-verify (PreToolUse Bash)"]
+        SRG["secret-read-guard (PreToolUse)"]
+        URG["url-safety-guard (PreToolUse WebFetch/Bash)"]
+        GF["gitnexus-freshness (PreToolUse) + gitnexus-post-commit (PostToolUse)"]
         DS["doc-sync-reminder (Stop)"]
-        CP["commit-plan-trailer check"]
+        LEX["lessons-extractor (SessionEnd → lessons.md + memory)"]
     end
     ULW --> WF
     WF -->|"LLM reads phase menu, picks 0..N skills"| skills
     skills -.-> guards
     EX -->|writes| PLANS["docs/PLANS.md + TODO.md"]
     CM -->|"Plan: trailer"| PLANS
+    LEX -->|"append correction"| LES[".claude/rules/lessons.md"]
 ```
+
+> Built hooks (8): `session-start`, `block-no-verify`, `secret-read-guard`, `url-safety-guard`,
+> `gitnexus-freshness`, `gitnexus-post-commit`, `doc-sync-reminder`, `lessons-extractor`. Node hooks
+> (`block-no-verify`, `secret-read-guard`, `url-safety-guard`, `doc-sync-reminder`) export a testable
+> `run()`, sequenced by the `bash-guards` dispatcher so a Bash call spawns one Node process, not three.
+> All fail-open with `LUNA_*` opt-outs **except** the safety guards and `gitnexus-freshness`, which
+> returns `ask` rather than serve a stale graph (see §"GitNexus freshness" below).
 
 ## 3. Phased workflow
 
@@ -78,12 +88,20 @@ Task state uses Claude Code's **native** `TaskCreate`/`TaskUpdate`/`TaskGet`/`Ta
 
 ## 4. The three enforcement mechanisms
 
-### A. Decision / rejection memory (pain #1)
-Three layers, weakest→strongest:
-1. **Native Claude Code memory** for cross-project lessons (a rule prompts a `feedback` memory on correction).
-2. **`docs/DECISIONS.md`** project-local log, injected by `session-start` so it's always in context.
-3. **`decision-guard`** PreToolUse hook reads a project denylist and returns `deny|ask` on a match —
-   turning a recurring rejection into a hard block. Tunable via `LUNA_HOOK_PROFILE`.
+### A. Corrections → rules (pain #1)
+"Don't repeat my mistakes" rides the **native rules mechanism** — no custom log or denylist:
+1. **`.claude/rules/lessons.md`** — Claude Code auto-loads everything in `.claude/rules/` at the same
+   priority as `CLAUDE.md`, so a captured lesson is always in context. Cursor mirror:
+   `.cursor/rules/lessons.mdc` (`alwaysApply`).
+2. **Native memory** — a `feedback` memory for cross-project lessons.
+
+Capture is **active**, two ways: (a) in-session, the agent appends a one-line rule to `lessons.md` on
+correction (per `.claude/rules/core.md` / `doc-update-agent`); (b) at session end, the
+**`lessons-extractor`** hook runs a detached Haiku pass over the transcript, extracts explicit user
+pushback, and writes high-confidence corrections to `lessons.md` (+ `.cursor/rules/lessons.mdc`) and a
+native `feedback` memory — so a lesson isn't lost if the agent forgets to record it. Fail-open;
+opt-out `LUNA_LESSONS_AUTOEXTRACT=off` or a `.claude/.no-reflect` marker. `block-no-verify`,
+`secret-read-guard`, and `url-safety-guard` are the always-on hard safety guards.
 
 ### B. Plan ↔ commit traceability (pain #7)
 - `dev-commit` skill writes `Plan: docs/plans/<file>.md#phase-N` on each commit.
@@ -92,14 +110,17 @@ Three layers, weakest→strongest:
 - `docs/TODO.md` rows always link to a plan file + phase, so any backlog item is one hop from resumable.
 
 ### C. GitNexus freshness (pain #9)
-Staleness = `git rev-parse HEAD` ≠ the repo's indexed `lastCommit` (exposed by `list_repos` /
-`group_status`). The `gitnexus-freshness` hook:
-- triggers on **SessionStart** and **after `git commit`** only (never per-edit);
-- runs the reindex **async / detached** so it never blocks;
-- **debounced** (`LUNA_GITNEXUS_DEBOUNCE_MIN`, default 10m);
-- **size-capped** (`LUNA_GITNEXUS_MAX_AUTOSYNC_FILES`, default 2000) — large repos prefer
-  incremental/changed-scope sync or fall back to a warning;
-- **opt-out** via `LUNA_GITNEXUS_AUTOSYNC=off`.
+Staleness = `git rev-parse HEAD` ≠ the repo's indexed `lastCommit` (from `.gitnexus/meta.json`).
+Adapted from flynance's proven hooks, split into two:
+- **`gitnexus-freshness`** (PreToolUse) — gates **GitNexus read ops** (`query`/`context`/`impact`/
+  `detect_changes`/`cypher`). If the index is stale it reindexes **synchronously** so the query reads a
+  fresh graph; on failure it returns `permissionDecision:"ask"` (**fail-closed** — never serve a stale
+  graph as fresh). Debounced (`LUNA_GITNEXUS_DEBOUNCE_MIN`, 10m) and **size-capped**
+  (`LUNA_GITNEXUS_MAX_AUTOSYNC_FILES`, 2000 → large repos warn instead of churn).
+- **`gitnexus-post-commit`** (PostToolUse on `git commit`/`merge`) — kicks off the reindex
+  **async / detached** so the commit never blocks; an in-flight lock keeps the two hooks from racing.
+- Both honor **opt-out** `LUNA_GITNEXUS_AUTOSYNC=off` and pass through when no `.gitnexus/` index exists.
+
 Paired with the `codebase-awareness` rule: query GitNexus for an existing implementation before
 writing new code (kills "agent recreates code that already exists").
 
@@ -109,3 +130,20 @@ Complementary, not competing. Use native `/workflows` for 100+-file sweeps / mas
 parallel agents. Use Luna Agent Kit for day-to-day gated feature work with local hooks, user
 approval between phases, and the memory/traceability mechanisms above. Documented as a decision table
 in `workflow-guide` and `.claude/rules/workflow.md`.
+
+## 6. Cross-tool (Claude Code + Cursor)
+
+The repo is the source of truth and the handoff bus; both tools read the same in-repo markdown + git,
+so neither depends on the other's private state.
+
+| Component | Claude Code | Cursor |
+|-----------|-------------|--------|
+| Durable state | `docs/`, git, `PLANS.md`, `TODO.md` | same (read natively) |
+| Skills (`SKILL.md`) | plugin `skills/` | `.cursor/skills` → symlink to `skills/` |
+| Hooks | `hooks/hooks.json` (SessionStart/PreToolUse/PostToolUse/Stop/SessionEnd) | `.cursor/hooks.json` (`beforeShellExecution`, `beforeReadFile`, `stop`) |
+| Rules | `.claude/rules/*.md` (auto-loaded) | `.cursor/rules/*.mdc` (`alwaysApply`) |
+| Plan authoring | native plan mode | native plan mode |
+
+**Loop:** plan in one tool → `dev-plan` saves a self-contained plan to `docs/plans/` + a `PLANS.md`
+row (set `Owner`) → the other tool implements + commits with the `Plan:` trailer → the first tool
+reviews via `git log --grep Plan:`.

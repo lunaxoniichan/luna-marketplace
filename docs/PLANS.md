@@ -1,0 +1,10 @@
+# Plan registry
+
+> Auto-built from `git log --grep '^Plan:'` via `scripts/build-plans-registry.mjs`.
+> **Owner** = which tool (`claude`/`cursor`) currently holds the work — the cross-tool handoff
+> column. **Spec** links back to the design in `docs/specs/`. Owner/Spec/Resume are human-kept;
+> Phase/Last commit/Status are derived from git and overwritten on each run.
+
+| Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |
+|------|------|-------|-------|-------------|--------|-------------|
+| — | — | — | — | — | — | Run `doc-init` then `dev-plan` to start tracked plan work |

@@ -1,12 +1,25 @@
-# Luna Agent Kit — Tools Inventory (Phase 0 review gate 🚦)
+# Luna Agent Kit — Tools Inventory
 
-**This is the gate.** Phase 1 does not start until you approve this list. For each row, mark the
-**Your call** column: `keep`, `cut`, `defer→P3`, or a note.
+Living component inventory. **Phases 1–4 are built** — 36 skills, 7 agents, 8 hooks, 6 rules, 1 script,
+the `.cursor/` cross-tool layer. The **Your call** column tracks per-row decisions.
+
+> **Post-Phase-1 build (this pass), per locked session decisions:** Phase-2 hooks were **adapted from
+> flynance** (`gitnexus_freshness.sh`→`gitnexus-freshness`+`gitnexus-post-commit`, `secret_guard.sh`→
+> `secret-read-guard`, `web_source_guard.py`→`url-safety-guard`, `post_tool_use_lints`→
+> `doc-sync-reminder`). Pain #1 is now **active** via a `lessons-extractor` SessionEnd hook
+> (adapted from flynance `approach_correction_extractor`). All 9 `kwb-*` were built now (each <250
+> lines) rather than copy-on-use. Two Phase-1 skills (`dev-tdd`, `dev-debug`) remain verbatim
+> superpowers copies and intentionally exceed 250 lines.
 
 > Revised after Phase-0 feedback: category prefixes incl. **`dev-` for the core lifecycle** and
 > `kwb-` for ECC knowledge; `eval-harness` → opt-in; `human-acceptance-matrix` → folded into
 > `review-external`; added `review-performance` skill, `review-internal`/`review-external` agents,
 > `doc-init` skill; **cut `workflow-manager`** (native Task tools + plan mode cover it).
+>
+> **Post-Phase-1 update:** dropped `DECISIONS.md` + `decision-guard` + denylist + `hook-flags.js` —
+> "don't-repeat" lessons now ride the **native rules** mechanism (`.claude/rules/lessons.md` +
+> `.cursor/rules/lessons.mdc`); native plan mode authors and `dev-plan` exports to `docs/plans/`;
+> added a **cross-tool `.cursor/` layer** so Claude Code + Cursor share repo + `SKILL.md` + hooks.
 
 ## Naming convention
 
@@ -68,7 +81,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 |---|------|--------|--------|---------------|-------|-----------|
 | 16 | doc-init | new | (templatizes this Phase-0 doc set) | scaffold the **minimum doc set** for any project (#2,#4) — see below | 1 | |
 | 17 | doc-update-project | new | — | sync human/architecture docs after code change (#2) | 2 | |
-| 18 | doc-update-agent | new | — | sync PLANS/TODO/DECISIONS + plan status (#7) | 2 | |
+| 18 | doc-update-agent | new | — | sync PLANS/TODO + plan status; append lessons to `.claude/rules/lessons.md` (#7,#1) | 2 | |
 | 19 | doc-simplify | new | — | right-size docs: max-length, merge/split, dedupe (#4,#8) | 2 | |
 
 ### skill-* / hook-* (authoring meta)
@@ -116,7 +129,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | A3 | execute | adapt | superpowers/skills/subagent-driven-development (decoupled) | implement one plan task in isolated context; no bundled review | 4 | |
 | A4 | test | new | — | run tests for a scoped change; return evidence | 4 | |
 | A5 | document-project | new (optional) | — | apply `doc-update-project` / `doc-simplify` to named paths | 4 | |
-| A6 | document-agent | new (optional) | — | apply `doc-update-agent` to PLANS/TODO/DECISIONS | 4 | |
+| A6 | document-agent | new (optional) | — | apply `doc-update-agent` to PLANS/TODO + lessons | 4 | |
 | A7 | dev-brainstorm | new (optional) | superpowers/skills/brainstorming | Socratic design session as a subagent (agent form of the `dev-brainstorm` skill) | 4 | |
 
 > `document-project` and `document-agent` are **two separate agents** (no slash) — one per doc class.
@@ -128,21 +141,22 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 
 | # | Name | Action | Source pattern | Behavior / pain | Phase | Your call |
 |---|------|--------|----------------|-----------------|-------|-----------|
-| H1 | session-start | adapt | superpowers/hooks/session-start | inject `workflow-guide` + `DECISIONS.md`; run freshness check (platform-aware) | 1 | |
-| H2 | decision-guard | new | PreToolUse deny | block denylisted repeat-offender commands; reason from DECISIONS.md (#1) | 1 | |
-| H3 | block-no-verify | copy | ECC/hooks | block `git commit --no-verify` | 1 | |
-| H4 | gitnexus-freshness | new | gitnexus-cli + MCP detect_changes/group_status | async guardrailed auto-reindex on SessionStart + post-commit (#9) | 2 | |
-| H5 | doc-sync-reminder | new | Stop event | src changed but docs untouched → suggest `doc-update-*` (#2) | 2 | |
-| H6 | url-safety-guard | adapt | cpo/plugins/security-guidance/hooks | warn/block `http://` + unknown hosts | 2 | |
-| H7 | secret-read-guard | adapt | cpo/plugins/security-guidance/hooks | warn on `.env` / key reads | 2 | |
+| H1 | session-start | adapt | superpowers/hooks/session-start | inject `workflow-guide`; run freshness check (platform-aware; Cursor branch) | 1 | done |
+| H2 | block-no-verify | copy | ECC/hooks | block `git commit --no-verify` + `core.hooksPath` override (always-on safety; Cursor via `beforeShellExecution`) | 1 | done |
+| H3 | gitnexus-freshness | adapt (flynance) | flynance gitnexus_freshness.sh | PreToolUse gate: stale gitnexus read → sync reindex (fail-closed); guardrails `LUNA_GITNEXUS_*` (#9) | 2 | done |
+| H3b | gitnexus-post-commit | adapt (flynance) | flynance gitnexus_post_commit.sh | PostToolUse `git commit/merge` → **async** detached reindex; never blocks (#9) | 2 | done |
+| H4 | doc-sync-reminder | new (node) | flynance post_tool_use_lints pattern | Stop: src changed but docs untouched → advisory `doc-update-*` suggestion; fail-open (#2) | 2 | done |
+| H5 | url-safety-guard | adapt (flynance, node) | flynance web_source_guard.py | PreToolUse WebFetch/Bash: HTTPS-only + allow/deny lists; `LUNA_WEB_GUARD=off` | 2 | done |
+| H6 | secret-read-guard | adapt (flynance, node) | flynance secret_guard.sh | PreToolUse Read/Write/Edit/Bash: block `.env`/key/secret access; `LUNA_SECRET_GUARD=off` | 2 | done |
+| H7 | lessons-extractor | adapt (flynance) | flynance approach_correction_extractor.sh + _lib | SessionEnd: detached Haiku pass → append lessons.md + native feedback memory; `LUNA_LESSONS_AUTOEXTRACT=off` (#1, **active**) | 2 | done |
 
 ## Rules / scripts / config
 
 | # | Name | Action | Source pattern | Reason / pain | Phase | Your call |
 |---|------|--------|----------------|---------------|-------|-----------|
-| R1 | rules: core, workflow, docs, git, codebase-awareness, security | new | ECC/rules/common | always-on guardrails (#5,#9) | 1–2 | |
+| R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons**, security | new | ECC/rules/common | always-on guardrails; `lessons.md` carries pain #1 (#1,#5,#9) | 1–2 | |
 | S1 | build-plans-registry.mjs | new | — | `git log --grep '^Plan:'` → `docs/PLANS.md` (#7) | 2 | |
-| C1 | LUNA_HOOK_PROFILE (minimal/standard/strict) | adapt | ECC/scripts/lib/hook-flags.js | tune hook strictness | 1–2 | |
+| C1 | ~~LUNA_HOOK_PROFILE (minimal/standard/strict)~~ | **SUPERSEDED** | ECC/scripts/lib/hook-flags.js | profile gating dropped — each hook ships a granular `LUNA_*` opt-out instead (see C2 + the `AGENTS.md` config table) | — | |
 | C2 | LUNA_GITNEXUS_AUTOSYNC / _DEBOUNCE_MIN / _MAX_AUTOSYNC_FILES | new | — | guardrails for auto-reindex (#9) | 2 | |
 
 ---
@@ -153,12 +167,15 @@ For any project, `doc-init` creates (from templates, idempotent — never overwr
 
 ```
 AGENTS.md  (+ CLAUDE.md -> AGENTS.md symlink)
-docs/SYSTEM_DESIGN.md          docs/PROJECT_STRUCTURE.md
-docs/DECISIONS.md              docs/PLANS.md            docs/TODO.md
-docs/workflows/WORKFLOW.md     docs/specs/ (dir)        docs/plans/ (dir)
+docs/SYSTEM_DESIGN.md     docs/PROJECT_STRUCTURE.md
+docs/PLANS.md             docs/TODO.md             docs/workflows/WORKFLOW.md
+.claude/rules/lessons.md  (don't-repeat lessons; Claude auto-loads .claude/rules/)
 ```
-Per-project optional (created on demand, not by default): `docs/DATABASE_DESIGN.md`,
-`docs/DESIGN_SYSTEM.md`, `docs/api/`.
+Created on first use (not pre-scaffolded): `docs/plans/<feature>.md`, `docs/specs/<topic>.md`.
+Per-project optional (on demand): `docs/DATABASE_DESIGN.md`, `docs/DESIGN_SYSTEM.md`, `docs/api/`.
+
+**Cross-tool:** also symlinks `.cursor/skills`, writes `.cursor/hooks.json` + `.cursor/rules/*.mdc`
+(`luna.mdc` bootstrap + `lessons.mdc` mirror).
 
 ## Native Task tools vs our PLANS.md/TODO.md (why both)
 
@@ -170,16 +187,24 @@ durable registry from native tasks + `git log`'s `Plan:` trailers.
 
 ---
 
-## Counts
-- **Skills:** 36 to build/adapt + 6 GitNexus skills **reused**.
+## Counts (all built)
+- **Skills:** 36 built + 6 GitNexus skills **reused**.
   Phase 1: 12 · Phase 2: 9 · Phase 3: 11 · Phase 4: 4.
-- **Agents:** 7 (review-internal P2; rest P4; 3 optional). **Hooks:** 7. **Rules:** 6. **Scripts:** 1.
+- **Agents:** 7 (review-internal; review-external, execute, test, document-project, document-agent,
+  dev-brainstorm). **Hooks:** 7 (session-start, block-no-verify, gitnexus-freshness,
+  gitnexus-post-commit, doc-sync-reminder, url-safety-guard, secret-read-guard, lessons-extractor —
+  block-no-verify + session-start from Phase 1). **Rules:** 6 (incl. `lessons`). **Scripts:** 1
+  (`build-plans-registry.mjs`) + `scripts/lib/approach-correction.py`. **Cross-tool:** `.cursor/`
+  mirrors (`hooks.json`, `rules/*.mdc`, `skills` symlink).
+- **Config env vars:** `LUNA_GITNEXUS_AUTOSYNC` / `_DEBOUNCE_MIN` / `_MAX_AUTOSYNC_FILES` ·
+  `LUNA_WEB_GUARD` · `LUNA_SECRET_GUARD` · `LUNA_DOC_SYNC_REMINDER` · `LUNA_LESSONS_AUTOEXTRACT`.
 
 ## Explicitly NOT building (kept lean on purpose)
 - `subagent-driven-development` as a **mandatory** orchestrator — replaced by optional `execute` agent.
 - **Automatic** per-task review chaining — `review-*` skills stay independent for inline use; the
   `review-internal` agent is **optional + user-invoked** (e.g. at PR time), so no forced 2× cost.
 - `workflow-manager` agent — native Task tools + plan mode + the LLM reading `WORKFLOW.md` cover it.
+- `DECISIONS.md` + `decision-guard` + denylist + `hook-flags.js` — superseded by **native rules** (`.claude/rules/lessons.md` + `.cursor/rules/lessons.mdc`); only `block-no-verify` stays as hard safety.
 - The 3 `.mjs` workflow scripts (validate/render/extract) — replaced by markdown-only `WORKFLOW.md`.
 - New `gitnexus-*` skills — the installed ones are reused.
 - Bulk copy of ECC's 262 skills — only the trimmed, stack-relevant `kwb-*`, copy-on-use.
