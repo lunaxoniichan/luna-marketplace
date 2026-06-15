@@ -7,4 +7,5 @@
 
 | Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |
 |------|------|-------|-------|-------------|--------|-------------|
-| — | — | — | — | — | — | Run `doc-init` then `dev-plan` to start tracked plan work |
+| — | docs/plans/2026-06-14-luna-agent-kit-v2.md | phase-1, phase-2, phase-3, phase-4 | — | `e1889ae` 2026-06-15 | active | — |
+| — | docs/plans/2026-06-15-phase-1-review-fixes.md | hooks | — | `88ea57d` 2026-06-15 | active | — |
