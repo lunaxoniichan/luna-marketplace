@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# SessionStart hook for Luna Agent Kit — inject workflow-guide
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+find_project_root() {
+    local dir="${PWD}"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -d "${dir}/.git" ]] || [[ -f "${dir}/docs/workflows/WORKFLOW.md" ]]; then
+            printf '%s' "$dir"
+            return 0
+        fi
+        dir="$(dirname "$dir")"
+    done
+    printf '%s' "${PWD}"
+}
+
+PROJECT_ROOT="$(find_project_root)"
+
+workflow_guide_content=$(cat "${PLUGIN_ROOT}/skills/workflow-guide/SKILL.md" 2>&1 || echo "Error reading workflow-guide skill")
+
+freshness_note=""
+if command -v gitnexus >/dev/null 2>&1 && [[ -d "${PROJECT_ROOT}/.git" ]]; then
+    freshness_note="\\n\\n**GitNexus:** Query GitNexus (query/context) before writing new code. The index auto-reindexes when stale — synchronously before a stale read op (gitnexus-freshness gate) and asynchronously after each commit (gitnexus-post-commit). Opt out with LUNA_GITNEXUS_AUTOSYNC=off."
+fi
+
+workflow_escaped=$(escape_for_json "$workflow_guide_content")
+freshness_escaped=$(escape_for_json "$freshness_note")
+
+session_context="<EXTREMELY_IMPORTANT>\\nYou have Luna Agent Kit.\\n\\n**workflow-guide** (read WORKFLOW.md for phase menus; skills are independent — no skill chains). Lessons you've taught me are in .claude/rules/lessons.md (auto-loaded by Claude Code):\\n\\n${workflow_escaped}${freshness_escaped}\\n</EXTREMELY_IMPORTANT>"
+
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+else
+  printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
+fi
+
+exit 0

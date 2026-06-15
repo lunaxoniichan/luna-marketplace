@@ -1,0 +1,11 @@
+# Trusted web sources — url-safety-guard allowlist (host-equal or .suffix match).
+#
+# WHILE THIS FILE IS EMPTY, the guard enforces only: HTTPS-only + the denylist.
+# It does NOT restrict which https hosts may be fetched. Add a host here only if
+# you want to switch to strict allowlist mode (then ONLY listed hosts are allowed).
+#
+# One host per line; "irs.gov" matches "www.irs.gov" but not "irs.gov.evil.com".
+# Examples (commented — uncomment / add per project as needed):
+# docs.claude.com
+# developer.mozilla.org
+# github.com

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": "node ./scripts/hooks/block-no-verify.js", "timeout": 5 },
+      { "command": "node ./scripts/hooks/secret-read-guard.js", "timeout": 5 },
+      { "command": "node ./scripts/hooks/url-safety-guard.js", "timeout": 5 }
+    ],
+    "beforeReadFile": [
+      { "command": "node ./scripts/hooks/secret-read-guard.js", "timeout": 5 }
+    ],
+    "stop": [
+      { "command": "node ./scripts/hooks/doc-sync-reminder.js", "timeout": 8 }
+    ]
+  }
+}

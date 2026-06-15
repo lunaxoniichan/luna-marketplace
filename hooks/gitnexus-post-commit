@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# PostToolUse(Bash) — eager, ASYNC GitNexus reindex after git commit/merge.
+#
+# Matches `git (commit|merge)`. Kicks off `gitnexus analyze` in the BACKGROUND
+# (detached) so the user never waits. Guards:
+#   * .gitnexus/.in_progress stamp — read by gitnexus-freshness so it doesn't
+#     double-trigger while a reindex is in flight.
+#   * flock on .analyze.lock — serializes racing analyze runs; non-blocking.
+#
+# Always exits 0 (never blocks the commit). Adapted from flynance
+# gitnexus_post_commit.sh. Opt-out: LUNA_GITNEXUS_AUTOSYNC=off.
+
+set -u
+
+[ "${LUNA_GITNEXUS_AUTOSYNC:-on}" = "off" ] && exit 0
+
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+IN_PROGRESS="$PROJECT_DIR/.gitnexus/.in_progress"
+ANALYZE_LOCK="$PROJECT_DIR/.gitnexus/.analyze.lock"
+STAMP="$PROJECT_DIR/.gitnexus/.analyze.last.ts"
+LOG="$PROJECT_DIR/.gitnexus/.analyze.last.log"
+
+INPUT=$(cat)
+COMMAND=$(printf '%s' "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print((d.get('tool_input') or {}).get('command', '') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+
+printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]]|;|&|\|)git[[:space:]]+(commit|merge)\b' || exit 0
+
+# Only proceed if no index has been built? No — analyze is idempotent. But if
+# there's no .gitnexus dir at all, the user hasn't opted into GitNexus here.
+[ -d "$PROJECT_DIR/.gitnexus" ] || exit 0
+
+# Skip if the tool call reported a non-zero exit (commit/merge failed).
+EXIT_CODE=$(printf '%s' "$INPUT" | python3 -c "
+import sys, json
+try:
+    tr = (json.load(sys.stdin).get('tool_response') or {})
+    for k in ('exit_code','exitCode','returncode','status'):
+        if k in tr: print(tr[k]); break
+    else: print('')
+except Exception: print('')
+" 2>/dev/null)
+[ -n "$EXIT_CODE" ] && [ "$EXIT_CODE" != "0" ] && exit 0
+
+if command -v gitnexus >/dev/null 2>&1; then
+    ANALYZE="gitnexus analyze"
+else
+    ANALYZE="npx --no-install gitnexus analyze"
+fi
+
+{
+    if command -v flock >/dev/null 2>&1; then
+        (
+            exec 200>"$ANALYZE_LOCK"
+            flock -n 200 || exit 0
+            touch "$IN_PROGRESS"
+            $ANALYZE >"$LOG" 2>&1 && date +%s > "$STAMP"
+            rm -f "$IN_PROGRESS"
+        )
+    else
+        touch "$IN_PROGRESS"
+        $ANALYZE >"$LOG" 2>&1 && date +%s > "$STAMP"
+        rm -f "$IN_PROGRESS"
+    fi
+} </dev/null >/dev/null 2>&1 &
+disown $! 2>/dev/null || true
+
+exit 0

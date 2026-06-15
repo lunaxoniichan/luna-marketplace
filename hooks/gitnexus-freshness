@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# PreToolUse(Bash) — lazy GitNexus freshness gate for read commands.
+#
+# Acts only when the Bash command is a GitNexus read op:
+#   [npx [--no-install]] gitnexus (impact|context|query|detect_changes|cypher)
+#
+# Stale (indexed lastCommit != HEAD) → reindex synchronously so the query reads
+# a fresh graph; on failure emit permissionDecision:"ask" (fail-CLOSED — never
+# serve a stale graph as if fresh). Fresh / no-match / already-reindexing → exit 0.
+#
+# Adapted from flynance gitnexus_freshness.sh with Luna guardrails:
+#   LUNA_GITNEXUS_AUTOSYNC=off          → pass through (warn-only), never reindex
+#   LUNA_GITNEXUS_DEBOUNCE_MIN=10       → skip reindex if one ran within N minutes
+#   LUNA_GITNEXUS_MAX_AUTOSYNC_FILES=2000 → above this, warn instead of full reindex
+#
+# Fail-open on anything unexpected (a broken hook must not block work).
+
+set -u
+
+[ "${LUNA_GITNEXUS_AUTOSYNC:-on}" = "off" ] && exit 0
+
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+META="$PROJECT_DIR/.gitnexus/meta.json"
+IN_PROGRESS="$PROJECT_DIR/.gitnexus/.in_progress"
+ANALYZE_LOCK="$PROJECT_DIR/.gitnexus/.analyze.lock"
+STAMP="$PROJECT_DIR/.gitnexus/.analyze.last.ts"
+DEBOUNCE_MIN="${LUNA_GITNEXUS_DEBOUNCE_MIN:-10}"
+MAX_FILES="${LUNA_GITNEXUS_MAX_AUTOSYNC_FILES:-2000}"
+
+INPUT=$(cat)
+
+# Cheap pre-gate: the vast majority of Bash commands aren't GitNexus reads, so
+# bail before spawning python if the payload doesn't even mention 'gitnexus'.
+printf '%s' "$INPUT" | grep -q gitnexus || exit 0
+
+COMMAND=$(printf '%s' "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print((d.get('tool_input') or {}).get('command', '') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+
+printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]])(npx[[:space:]]+(--no-install[[:space:]]+)?)?gitnexus[[:space:]]+(impact|context|query|detect_changes|cypher)\b' || exit 0
+
+# A reindex is already running — let the query ride.
+[ -e "$IN_PROGRESS" ] && exit 0
+
+# No index yet → analyze is the user's call; don't auto-fire.
+[ -f "$META" ] || exit 0
+
+LAST_COMMIT=$(python3 -c "
+import json
+try: print((json.load(open('$META')).get('lastCommit') or ''))
+except Exception: print('')
+" 2>/dev/null)
+HEAD=$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null || echo "")
+
+# Can't determine freshness → pass through (CLI will surface real errors).
+{ [ -z "$LAST_COMMIT" ] || [ -z "$HEAD" ]; } && exit 0
+[ "$LAST_COMMIT" = "$HEAD" ] && exit 0   # fresh
+
+# Debounce: a recent reindex means the graph is close enough; don't churn.
+if [ -f "$STAMP" ]; then
+    now=$(date +%s); last=$(cat "$STAMP" 2>/dev/null || echo 0)
+    if [ $(( (now - last) / 60 )) -lt "$DEBOUNCE_MIN" ]; then exit 0; fi
+fi
+
+# Size cap: very large repos are warned, not auto-churned.
+NFILES=$(git -C "$PROJECT_DIR" ls-files 2>/dev/null | wc -l | tr -d ' ')
+if [ -n "$NFILES" ] && [ "$NFILES" -gt "$MAX_FILES" ]; then
+    cat <<EOF
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"gitnexus_stale: index is behind HEAD and the repo has $NFILES files (> LUNA_GITNEXUS_MAX_AUTOSYNC_FILES=$MAX_FILES). Run 'gitnexus analyze' (or an incremental sync) yourself, then retry."}}
+EOF
+    exit 0
+fi
+
+# Pick the analyze command.
+if command -v gitnexus >/dev/null 2>&1; then
+    ANALYZE=(gitnexus analyze)
+else
+    ANALYZE=(npx --no-install gitnexus analyze)
+fi
+
+mkdir -p "$PROJECT_DIR/.gitnexus"
+run_analyze() {
+    touch "$IN_PROGRESS"
+    if "${ANALYZE[@]}" 1>&2; then
+        date +%s > "$STAMP"; rm -f "$IN_PROGRESS"; return 0
+    fi
+    rm -f "$IN_PROGRESS"; return 7
+}
+
+if command -v flock >/dev/null 2>&1; then
+    (
+        exec 200>"$ANALYZE_LOCK"
+        flock -n 200 || { touch "$IN_PROGRESS"; exit 0; }
+        run_analyze
+    )
+    RC=$?
+else
+    run_analyze; RC=$?
+fi
+
+if [ "${RC:-0}" -ne 0 ]; then
+    cat <<EOF
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"gitnexus_unavailable: reindex failed (exit $RC) — graph is stale; run 'gitnexus analyze' manually to see the real error."}}
+EOF
+fi
+
+exit 0

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# SessionEnd — extract approach corrections from this session's transcript and
+# record them so future sessions don't repeat the mistake (pain #1, active).
+#
+# Writes:
+#   * one-line lesson → .claude/rules/lessons.md (+ .cursor/rules/lessons.mdc mirror)
+#   * native `feedback` memory (project-scoped, or ~/.claude/CLAUDE.md if portable)
+#
+# The extractor calls `claude -p` (Haiku) which can take 5-60s, so we DETACH it:
+# SessionEnd returns immediately, the work finishes in the background and logs to
+# .claude/.luna-cache/lessons-extractor.log.
+#
+# Fail-OPEN always. Opt-out: LUNA_LESSONS_AUTOEXTRACT=off, or a .claude/.no-reflect
+# marker file. Adapted from flynance approach_correction_extractor.sh.
+
+set -u
+
+[ "${LUNA_LESSONS_AUTOEXTRACT:-on}" = "off" ] && exit 0
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PY="${PLUGIN_ROOT}/scripts/lib/approach-correction.py"
+
+[ -f "$PY" ] || exit 0
+command -v python3 >/dev/null 2>&1 || exit 0
+
+INPUT_FILE=$(mktemp -t luna-lessons-XXXXXX 2>/dev/null || mktemp)
+cat > "$INPUT_FILE"
+
+(
+    nohup python3 "$PY" < "$INPUT_FILE" >/dev/null 2>&1
+    rm -f "$INPUT_FILE"
+) </dev/null >/dev/null 2>&1 &
+disown $! 2>/dev/null || true
+
+exit 0

@@ -1,0 +1,5 @@
+# Blocked web sources — url-safety-guard denylist (host-equal or .suffix match).
+#
+# Hosts here are hard-blocked regardless of the allowlist. Use for content farms,
+# AI-summary mirrors, and known-stale scrapers. One host per line; "#" comments.
+# Add project-specific bad sources below.
