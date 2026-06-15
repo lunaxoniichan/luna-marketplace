@@ -50,6 +50,7 @@ EOF
 ## After commit
 
 - Remind user: Phase 2's `build-plans-registry.mjs` rebuilds `docs/PLANS.md` from `git log --grep '^Plan:'`
+  — commit that regenerated `PLANS.md` **without** a `Plan:` trailer (it's auto-derived; a trailer self-invalidates the registry)
 - Update `doc-update-agent` when backlog/plan status changes (Phase 2 skill)
 
 ## Never
