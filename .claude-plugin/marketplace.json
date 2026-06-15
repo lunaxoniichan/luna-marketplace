@@ -1,5 +1,9 @@
 {
   "name": "luna-marketplace",
+  "owner": {
+    "name": "lunaxoniichan",
+    "email": "lunaxoniichan@gmail.com"
+  },
   "metadata": {
     "description": "Luna Agent Kit — phased workflow, corrections-as-rules, plan↔commit tracing, GitNexus-aware coding"
   },
