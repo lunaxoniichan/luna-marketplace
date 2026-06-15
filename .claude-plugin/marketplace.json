@@ -1,0 +1,23 @@
+{
+  "name": "luna-marketplace",
+  "metadata": {
+    "description": "Luna Agent Kit — phased workflow, corrections-as-rules, plan↔commit tracing, GitNexus-aware coding"
+  },
+  "plugins": [
+    {
+      "name": "luna-agent-kit",
+      "source": "./",
+      "description": "Configurable phased workflow, project memory, plan↔commit tracing, GitNexus-aware vibe coding",
+      "version": "0.1.0",
+      "repository": "https://github.com/lunaxoniichan/luna-marketplace",
+      "keywords": [
+        "workflow",
+        "skills",
+        "hooks",
+        "planning",
+        "gitnexus"
+      ],
+      "strict": false
+    }
+  ]
+}

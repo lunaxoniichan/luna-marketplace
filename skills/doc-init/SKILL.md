@@ -39,15 +39,30 @@ Created **on first use**, not pre-scaffolded: `docs/plans/<feature>.md` (by `dev
 | `hooks/hooks.json` (`PreToolUse`/`SessionStart`) | `.cursor/hooks.json` (`beforeShellExecution`/`sessionStart` → same scripts) |
 | `.claude/rules/*.md` (auto-loaded) | `.cursor/rules/*.mdc` (add `alwaysApply: true` frontmatter) |
 
-Create `.cursor/rules/lessons.mdc` (mirror of `.claude/rules/lessons.md`) and `.cursor/rules/luna.mdc`
-(`alwaysApply`: read `docs/workflows/WORKFLOW.md`; skills are independent; follow `AGENTS.md`).
+Create all `.cursor/rules/*.mdc` mirrors of the six `.claude/rules/*.md` files (add `alwaysApply: true`
+frontmatter to each):
+
+| Source (Claude Code) | Mirror (Cursor) |
+|----------------------|-----------------|
+| `.claude/rules/core.md` | `.cursor/rules/core.mdc` |
+| `.claude/rules/workflow.md` | `.cursor/rules/workflow.mdc` |
+| `.claude/rules/docs.md` | `.cursor/rules/docs.mdc` |
+| `.claude/rules/git.md` | `.cursor/rules/git.mdc` |
+| `.claude/rules/codebase-awareness.md` | `.cursor/rules/codebase-awareness.mdc` |
+| `.claude/rules/lessons.md` | `.cursor/rules/lessons.mdc` |
+
+Also create `.cursor/rules/luna.mdc` (`alwaysApply: true`; read `docs/workflows/WORKFLOW.md`; skills are
+independent; follow `AGENTS.md`).
 
 ## Process
 
 1. Detect project root (git root or cwd).
 2. For each minimum-set path, if missing → create from Luna Agent Kit templates.
 3. If `CLAUDE.md` missing and `AGENTS.md` exists → `ln -s AGENTS.md CLAUDE.md`.
-4. Cross-tool: symlink `.cursor/skills`; write `.cursor/hooks.json` and `.cursor/rules/*.mdc`.
+4. Cross-tool: symlink `.cursor/skills` → plugin's `skills/` dir; write `.cursor/rules/*.mdc`;
+   write `.cursor/hooks.json` using **absolute paths** resolved from `$CLAUDE_PLUGIN_ROOT` at init
+   time (e.g. `node /absolute/path/to/plugin/scripts/hooks/bash-guards.js`) — relative paths break
+   because the plugin scripts live in the plugin cache, not the app repo.
 5. Report created vs skipped paths.
 
 ## Templates

@@ -2,58 +2,98 @@
 
 Local-first agent kit for **Claude Code + Cursor**: phased workflow, corrections-as-rules, plan↔commit tracing, and GitNexus-aware coding.
 
-## Install
+## What you get
 
-From this repo root in Claude Code:
+| Component | Count |
+|-----------|-------|
+| Skills | 36 |
+| Agents | 7 |
+| Hooks | 7 |
+| Rules | 6 |
 
+Each **app repo** gets its own `docs/workflows/WORKFLOW.md` (customize with `workflow-update`). Full list: [docs/TOOLS_LIST.md](docs/TOOLS_LIST.md).
+
+## Setup
+
+You do **not** clone or open this `luna-marketplace` repo to use Luna.
+
+- **Plugin** — Claude Code downloads it from GitHub into its own cache (skills, agents, hooks).
+- **Your project** — your app repo (e.g. `my-api`, `my-website`). Luna adds docs and workflow files there.
+
+Do this once per machine, then once per app repo.
+
+### 1. Install the plugin (Claude Code)
+
+Run in Claude Code from **any** directory:
+
+```text
+/plugin marketplace add https://github.com/lunaxoniichan/luna-marketplace.git
+/plugin install luna-agent-kit@luna-marketplace
 ```
-/plugin install .
+
+Check `/plugin` → **Installed** → `luna-agent-kit` is enabled. Start a new session.
+
+Requires [Claude Code](https://code.claude.com/) v2.1+ and Node.js 18+ (for hooks). Uninstall **Superpowers** first if you have it — skill names overlap.
+
+To update later:
+
+```text
+/plugin marketplace update luna-marketplace
 ```
 
-Skills, agents, and hooks are auto-discovered. Only `name` is required in `.claude-plugin/plugin.json`.
+### 2. Wire your app repo
 
-## What you get (Phase 1)
+Open Claude Code in **your application repository** (not `luna-marketplace`) and say:
 
-- **12 skills** — `workflow-guide`, `workflow-update`, `doc-init`, `dev-brainstorm`, `dev-plan`, `dev-execute`, `dev-tdd`, `dev-debug`, `dev-verify`, `review-code`, `review-simplify`, `dev-commit`
-- **2 hooks** — `session-start` (inject `workflow-guide`), `block-no-verify` (always-on safety)
-- **6 rules** — core, workflow, docs, git, codebase-awareness, `lessons` (don't-repeat memory)
-- **Workflow** — `docs/workflows/WORKFLOW.md` (markdown-only, no build scripts)
+```text
+Run doc-init for this project.
+```
 
-## Quick start
+That creates the minimum docs in **your** repo (`AGENTS.md`, `docs/workflows/WORKFLOW.md`, `docs/PLANS.md`, `docs/TODO.md`, `.claude/rules/lessons.md`, `.cursor/` mirror). It only adds missing files — never overwrites existing ones. The plugin's other five behavioral rules load automatically from the plugin cache — you do not need to copy them. Commit the new files.
 
-1. `/plugin install .` in a project that uses this kit (or dogfood on this repo).
-2. New session → `workflow-guide` injected; `.claude/rules/` (incl. `lessons.md`) auto-loaded by Claude Code.
-3. Read `docs/workflows/WORKFLOW.md` for phase menus.
-4. Run `doc-init` on a fresh repo to scaffold docs.
+### 3. Start working
 
-## Docs
+1. New session → `workflow-guide` loads automatically.
+2. Read `docs/workflows/WORKFLOW.md` for phases and skill menus.
+3. For a full feature: brainstorm → design → plan → execute (use `trivial` / `fix` / `spike` variants for small tasks).
 
-| Doc | Purpose |
-|-----|---------|
-| [AGENTS.md](AGENTS.md) | Entry guide for agents and contributors |
-| [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) | Architecture + enforcement mechanisms |
-| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Repo layout |
-| [docs/TOOLS_LIST.md](docs/TOOLS_LIST.md) | Full component inventory |
+## Optional — customize your project's workflow
 
-## Configuration
+Skip this if the default workflow in `docs/workflows/WORKFLOW.md` is fine.
 
-`block-no-verify` is always-on (security) — it blocks `git --no-verify` and `core.hooksPath` overrides.
-`LUNA_HOOK_PROFILE` / `LUNA_DISABLED_HOOKS` return in Phase 2 when the gitnexus/doc-sync hooks need gating.
+After `doc-init`, each app repo has its **own** workflow file. To change phases, gates, skill menus, or variants for **your project only**:
 
-**Don't-repeat memory:** corrections become rules in `.claude/rules/lessons.md` (Claude auto-loads
-`.claude/rules/`), mirrored to `.cursor/rules/lessons.mdc` for Cursor.
+1. Describe what you want in plain language.
+2. Ask Claude to run **`workflow-update`**.
+3. Review the diff to `docs/workflows/WORKFLOW.md` and commit it.
 
-## Cross-tool (Claude Code + Cursor)
+Example prompts:
 
-The repo is the source of truth and handoff bus. Skills (`SKILL.md`) work in both — Cursor discovers
-them via `.cursor/skills` (symlink). Hooks: `hooks/hooks.json` (Claude) + `.cursor/hooks.json`
-(Cursor, `beforeShellExecution`). Rules: `.claude/rules/*.md` mirrored to `.cursor/rules/*.mdc`. Plan
-in one tool, implement in the other via the self-contained plan in `docs/plans/` + the `Plan:` trailer.
+```text
+Add kwb-postgres to system-design suggested_skills.
+
+For the fix variant, skip system-design.
+
+Add a payment variant that requires user_approval before dev-execute.
+```
+
+Use skill names from [docs/TOOLS_LIST.md](docs/TOOLS_LIST.md). Do not hand-edit `WORKFLOW.md` — `workflow-update` keeps the YAML frontmatter and Mermaid diagram in sync.
+
+Both Claude Code and Cursor read the same file after you commit.
+
+## Daily use
+
+- Workflow **suggests** skills per phase; the agent **picks** what fits.
+- Plan commits: `Plan: docs/plans/<file>.md#phase-N` (use **`doc-update-agent`** to sync `PLANS.md` / `TODO.md`)
+
+## More
+
+| Topic | Where |
+|-------|--------|
+| Agent/contributor guide | [AGENTS.md](AGENTS.md) |
+| Hook env vars | [AGENTS.md § Configuration](AGENTS.md#configuration-env-vars) |
+| Architecture | [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md) |
 
 ## Reference forks
 
 `fork/superpowers`, `fork/ECC`, `fork/claude-plugins-official` are read-only references — not loaded at runtime.
-
-## Build status
-
-**Phase 1** — scaffold + workflow + memory/traceability foundation. Phase 2 adds doc-sync hooks, GitNexus auto-reindex, and `build-plans-registry.mjs`.

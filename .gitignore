@@ -8,3 +8,4 @@ __pycache__/
 .gitnexus/
 .claude/.luna-cache/
 .claude/.no-reflect
+.idea/
