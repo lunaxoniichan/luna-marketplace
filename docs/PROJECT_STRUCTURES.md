@@ -17,7 +17,7 @@ luna-marketplace/
 │   ├── TODO.md                     # backlog; every row links to a plan+phase (#7)
 │   ├── TOOLS_LIST.md               # component inventory: copy/adapt/new/reuse + source + reason
 │   ├── SYSTEM_DESIGN.md            # target architecture + the 3 enforcement mechanisms
-│   ├── PROJECT_STRUCTURE.md        # this file
+│   ├── PROJECT_STRUCTURES.md        # this file
 │   ├── DATABASE_DESIGN.md          # (per-project, on demand via doc-init)
 │   ├── DESIGN_SYSTEM.md            # (per-project, on demand via doc-init)
 │   ├── workflows/
@@ -74,6 +74,6 @@ luna-marketplace/
 
 When a project managed by this kit contains sub-projects (its own submodules or service folders),
 mirror the **agent docs** per module: each module gets its own `docs/TODO.md`, `docs/PLANS.md`, and
-`docs/PROJECT_STRUCTURE.md`, plus optional `docs/DESIGN_SYSTEM.md`, `docs/DATABASE_DESIGN.md`,
+`docs/PROJECT_STRUCTURES.md`, plus optional `docs/DESIGN_SYSTEM.md`, `docs/DATABASE_DESIGN.md`,
 `docs/api/`. This keeps plan↔commit tracking and doc-sync scoped to the module that actually changed,
 rather than one giant root registry.
