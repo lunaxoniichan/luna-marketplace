@@ -4,7 +4,7 @@
 
 | Class | Paths | Maintained by |
 |-------|-------|---------------|
-| **Project docs** (human/architecture) | `docs/SYSTEM_DESIGN.md`, `PROJECT_STRUCTURE.md`, `DATABASE_DESIGN.md`, `DESIGN_SYSTEM.md`, `docs/api/*` | `doc-update-project` |
+| **Project docs** (human/architecture) | `docs/SYSTEM_DESIGN.md`, `PROJECT_STRUCTURES.md`, `DATABASE_DESIGN.md`, `DESIGN_SYSTEM.md`, `docs/api/*` | `doc-update-project` |
 | **Agent docs** (workflow state) | `docs/PLANS.md`, `TODO.md`, `docs/plans/*` | `doc-update-agent` |
 
 Corrections/lessons → `.claude/rules/lessons.md` (auto-loaded) + `.cursor/rules/lessons.mdc` mirror.

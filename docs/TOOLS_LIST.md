@@ -1,6 +1,6 @@
 # Luna Agent Kit — Tools Inventory
 
-Living component inventory. **Phases 1–4 are built** — 36 skills, 7 agents, 8 hooks, 6 rules, 1 script,
+Living component inventory. **Phases 1–4 are built** — 36 skills, 7 agents, 9 hooks, 6 rules, 2 scripts,
 the `.cursor/` cross-tool layer. The **Your call** column tracks per-row decisions.
 
 > **Post-Phase-1 build (this pass), per locked session decisions:** Phase-2 hooks were **adapted from
@@ -72,7 +72,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | # | Name | Action | Source | Reason / pain | Phase | Your call |
 |---|------|--------|--------|---------------|-------|-----------|
 | 12 | review-code | adapt | superpowers/skills/requesting-code-review | logic/correctness report (#3) | 1 | |
-| 13 | review-simplify | adapt | cpo/plugins/pr-review-toolkit/agents/code-simplifier.md | dedupe / dead-code / over-complexity (#3,#8) | 1 | |
+| 13 | review-simplify | adapt | cpo/plugins/pr-review-toolkit/agents/code-simplifier.md | dedupe / dead-code / over-complexity (#3,#8); Duplication pass = jscpd (deterministic) + GitNexus `query`/`group_query` (semantic) | 1 | |
 | 14 | review-security | adapt (trim 503→<250) | ECC/skills/security-review | OWASP / secrets review | 2 | |
 | 15 | review-performance | new | (ref ECC/rules/common/performance.md) | hot-path / N+1 / allocation review — completes `review-internal` set | 2 | |
 
@@ -149,6 +149,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | H5 | url-safety-guard | adapt (flynance, node) | flynance web_source_guard.py | PreToolUse WebFetch/Bash: HTTPS-only + allow/deny lists; `LUNA_WEB_GUARD=off` | 2 | done |
 | H6 | secret-read-guard | adapt (flynance, node) | flynance secret_guard.sh | PreToolUse Read/Write/Edit/Bash: block `.env`/key/secret access; `LUNA_SECRET_GUARD=off` | 2 | done |
 | H7 | lessons-extractor | adapt (flynance) | flynance approach_correction_extractor.sh + _lib | SessionEnd: detached Haiku pass → append lessons.md + native feedback memory; `LUNA_LESSONS_AUTOEXTRACT=off` (#1, **active**) | 2 | done |
+| H8 | dedupe-guard | new (node) | jscpd | PreToolUse Bash `git commit`: run jscpd on staged source → advisory clone warning; fail-open; `LUNA_DEDUPE_GUARD=off` (#3) | post-4 | done |
 
 ## Rules / scripts / config
 
@@ -156,6 +157,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 |---|------|--------|----------------|---------------|-------|-----------|
 | R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons**, security | new | ECC/rules/common | always-on guardrails; `lessons.md` carries pain #1 (#1,#5,#9) | 1–2 | |
 | S1 | build-plans-registry.mjs | new | — | `git log --grep '^Plan:'` → `docs/PLANS.md` (#7) | 2 | |
+| S2 | detect-modules.mjs | new | — | list submodules carrying their own `CLAUDE.md`/`AGENTS.md` → `doc-init` per-module scaffold targets | post-4 | done |
 | C1 | ~~LUNA_HOOK_PROFILE (minimal/standard/strict)~~ | **SUPERSEDED** | ECC/scripts/lib/hook-flags.js | profile gating dropped — each hook ships a granular `LUNA_*` opt-out instead (see C2 + the `AGENTS.md` config table) | — | |
 | C2 | LUNA_GITNEXUS_AUTOSYNC / _DEBOUNCE_MIN / _MAX_AUTOSYNC_FILES | new | — | guardrails for auto-reindex (#9) | 2 | |
 
@@ -167,7 +169,7 @@ For any project, `doc-init` creates (from templates, idempotent — never overwr
 
 ```
 AGENTS.md  (+ CLAUDE.md -> AGENTS.md symlink)
-docs/SYSTEM_DESIGN.md     docs/PROJECT_STRUCTURE.md
+docs/SYSTEM_DESIGN.md     docs/PROJECT_STRUCTURES.md
 docs/PLANS.md             docs/TODO.md             docs/workflows/WORKFLOW.md
 .claude/rules/lessons.md  (don't-repeat lessons; Claude auto-loads .claude/rules/)
 ```
@@ -191,13 +193,15 @@ durable registry from native tasks + `git log`'s `Plan:` trailers.
 - **Skills:** 36 built + 6 GitNexus skills **reused**.
   Phase 1: 12 · Phase 2: 9 · Phase 3: 11 · Phase 4: 4.
 - **Agents:** 7 (review-internal; review-external, execute, test, document-project, document-agent,
-  dev-brainstorm). **Hooks:** 7 (session-start, block-no-verify, gitnexus-freshness,
-  gitnexus-post-commit, doc-sync-reminder, url-safety-guard, secret-read-guard, lessons-extractor —
-  block-no-verify + session-start from Phase 1). **Rules:** 6 (incl. `lessons`). **Scripts:** 1
-  (`build-plans-registry.mjs`) + `scripts/lib/approach-correction.py`. **Cross-tool:** `.cursor/`
+  dev-brainstorm). **Hooks:** 9 (session-start, block-no-verify, gitnexus-freshness,
+  gitnexus-post-commit, doc-sync-reminder, url-safety-guard, secret-read-guard, lessons-extractor,
+  dedupe-guard — block-no-verify + session-start from Phase 1). **Rules:** 6 (incl. `lessons`).
+  **Scripts:** 2 (`build-plans-registry.mjs`, `detect-modules.mjs`) +
+  `scripts/lib/approach-correction.py`. **Cross-tool:** `.cursor/`
   mirrors (`hooks.json`, `rules/*.mdc`, `skills` symlink).
 - **Config env vars:** `LUNA_GITNEXUS_AUTOSYNC` / `_DEBOUNCE_MIN` / `_MAX_AUTOSYNC_FILES` ·
-  `LUNA_WEB_GUARD` · `LUNA_SECRET_GUARD` · `LUNA_DOC_SYNC_REMINDER` · `LUNA_LESSONS_AUTOEXTRACT`.
+  `LUNA_WEB_GUARD` · `LUNA_SECRET_GUARD` · `LUNA_DOC_SYNC_REMINDER` · `LUNA_DEDUPE_GUARD` ·
+  `LUNA_LESSONS_AUTOEXTRACT`.
 
 ## Explicitly NOT building (kept lean on purpose)
 - `subagent-driven-development` as a **mandatory** orchestrator — replaced by optional `execute` agent.
@@ -212,6 +216,21 @@ durable registry from native tasks + `git log`'s `Plan:` trailers.
 ## Opt-in extras (not in default build; add only when needed)
 - **eval-harness** (`kwb-eval`) — add only when building an LLM/agent project that needs eval-driven dev.
 - Standalone **human-acceptance-matrix** — not needed; its function lives in the `review-external` agent.
+
+## Code-intelligence tooling — audit (why the stack is GitNexus + jscpd, nothing else)
+
+The 4-layer tool survey (graph / duplicate-detection / architecture / pattern-search) collapsed to
+**two** tools. Recorded so it isn't re-litigated:
+
+| Layer | Decision | Rejected (reason) |
+|-------|----------|-------------------|
+| Graph / find-related | **GitNexus** (kept; `query`=BM25+vector+RRF, `group_query`=cross-module, Leiden communities) | **Graphify / Serena / CodeGraph** — redundant with GitNexus for pure code; Graphify's extra value is multimodal (PDF/image) which we don't need |
+| Duplicate detection | **jscpd** (added; 150+ langs, one tool for Python + TS/JS) | **Fallow** (TS/JS-only → would force a 2nd tool for Python modules); **DRYwall** (just a jscpd wrapper) |
+| Architecture enforcement | **dropped** | **dependency-cruiser / Fallow** — TS/JS-only, can't cover polyglot repos uniformly; GitNexus `impact`/`group_query` already surface cross-module deps read-only |
+| Pattern search | **dropped** | **semgrep / ast-grep** — redundant with GitNexus (find + `gitnexus-refactoring`) and jscpd (clones) for our use cases |
+
+Proactive (GitNexus query before writing) + reactive (jscpd via `review-simplify` + `dedupe-guard`
+hook) covers refactoring, new-feature-without-duplication, and cross-module find.
 
 ---
 

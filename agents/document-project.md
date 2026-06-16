@@ -13,7 +13,7 @@ in isolated context. The agent form of the `doc-update-project` (+ `doc-simplify
 
 ## Scope (project docs only)
 
-`docs/SYSTEM_DESIGN.md` · `docs/PROJECT_STRUCTURE.md` · `docs/DATABASE_DESIGN.md` ·
+`docs/SYSTEM_DESIGN.md` · `docs/PROJECT_STRUCTURES.md` · `docs/DATABASE_DESIGN.md` ·
 `docs/DESIGN_SYSTEM.md` · `docs/api/*`.
 
 ## Process

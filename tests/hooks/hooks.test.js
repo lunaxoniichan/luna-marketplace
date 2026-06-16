@@ -6,6 +6,11 @@ const { run: runSecretGuard } = require('../../scripts/hooks/secret-read-guard')
 const { run: runUrlGuard, check: urlCheck } = require('../../scripts/hooks/url-safety-guard');
 const { shouldRemind } = require('../../scripts/hooks/doc-sync-reminder');
 const { check: bashGuards } = require('../../scripts/hooks/bash-guards');
+const {
+  isGitCommit,
+  summarizeReport,
+  run: runDedupeGuard,
+} = require('../../scripts/hooks/dedupe-guard');
 
 let passed = 0;
 let failed = 0;
@@ -132,6 +137,49 @@ test('doc-sync-reminder stays silent when docs were updated', () => {
 
 test('doc-sync-reminder stays silent for docs-only changes', () => {
   assert(shouldRemind(['README.md']) === false, 'should not remind');
+});
+
+// --- dedupe-guard (pure helpers) ---
+
+test('dedupe-guard detects a plain git commit', () => {
+  assert(isGitCommit('git commit -m "feat: x"') === true, 'should detect');
+});
+
+test('dedupe-guard detects git commit with global flags', () => {
+  assert(isGitCommit('git -c user.name=ci commit -m x') === true, 'should detect');
+});
+
+test('dedupe-guard ignores "commit" inside a -m message', () => {
+  assert(isGitCommit('git push origin "my commit branch"') === false, 'should not detect');
+});
+
+test('dedupe-guard ignores non-commit git commands', () => {
+  assert(isGitCommit('git status') === false, 'should not detect');
+});
+
+test('dedupe-guard summarizeReport returns null when no clones', () => {
+  assert(summarizeReport({ statistics: { total: { clones: 0 } }, duplicates: [] }) === null, 'no warn');
+});
+
+test('dedupe-guard summarizeReport warns when clones present', () => {
+  const msg = summarizeReport({
+    statistics: { total: { clones: 1 } },
+    duplicates: [{ lines: 12, firstFile: { name: 'a.ts', start: 1 }, secondFile: { name: 'b.ts', start: 9 } }],
+  });
+  assert(typeof msg === 'string' && msg.includes('a.ts:1') && msg.includes('b.ts:9'), 'should warn with locations');
+});
+
+test('dedupe-guard run() short-circuits to exit 0 when opted out', () => {
+  const prev = process.env.LUNA_DEDUPE_GUARD;
+  process.env.LUNA_DEDUPE_GUARD = 'off';
+  const r = runDedupeGuard(JSON.stringify({ tool_input: { command: 'git commit -m x' } }));
+  process.env.LUNA_DEDUPE_GUARD = prev;
+  assert(r.exitCode === 0 && !r.systemMessage, 'should be silent exit 0');
+});
+
+test('dedupe-guard run() ignores non-commit commands', () => {
+  const r = runDedupeGuard(JSON.stringify({ tool_input: { command: 'npm test' } }));
+  assert(r.exitCode === 0 && !r.systemMessage, 'should be silent exit 0');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -5,8 +5,9 @@ vibe-coding a consistent, gated workflow plus three pieces of project memory tha
 plugins don't provide: **corrections captured as native rules**, **plan↔commit traceability**, and **GitNexus
 index freshness**.
 
-> **Build status:** Phases 1–4 complete — 36 skills, 7 agents, 8 hooks, 6 rules, `build-plans-registry.mjs`,
-> and the `.cursor/` cross-tool layer. See `docs/TOOLS_LIST.md` for the full inventory.
+> **Build status:** Phases 1–4 complete — 36 skills, 7 agents, 9 hooks, 6 rules,
+> `build-plans-registry.mjs` + `detect-modules.mjs`, and the `.cursor/` cross-tool layer.
+> See `docs/TOOLS_LIST.md` for the full inventory.
 
 `CLAUDE.md` is a symlink to this file.
 
@@ -33,7 +34,7 @@ Skills are **independent**: none references or chains into another. Sequencing l
 
 Two doc classes — keep them separate:
 
-- **Project docs** (human/architecture): `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURE.md`,
+- **Project docs** (human/architecture): `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURES.md`,
   `docs/DATABASE_DESIGN.md`, `docs/DESIGN_SYSTEM.md`, `docs/api/*`. Maintained by `doc-update-project`.
 - **Agent docs** (workflow state): `docs/PLANS.md`, `docs/TODO.md`, plan files under `docs/plans/`.
   Maintained by `doc-update-agent`. (Corrections/lessons live in `.claude/rules/lessons.md`.)
@@ -90,6 +91,7 @@ returns `ask` rather than serve a stale graph) and honor opt-out env vars:
 | `LUNA_SECRET_GUARD` | `on` | `off` disables the secret-file block |
 | `LUNA_WEB_GUARD` | `on` | `off` disables HTTPS-only + source-list enforcement |
 | `LUNA_DOC_SYNC_REMINDER` | `on` | `off` silences the Stop-hook doc reminder |
+| `LUNA_DEDUPE_GUARD` | `on` | `off` disables the pre-commit jscpd duplicate warning |
 | `LUNA_LESSONS_AUTOEXTRACT` | `on` | `off` (or a `.claude/.no-reflect` marker) disables auto lesson capture |
 
 ## Reference forks (read-only)

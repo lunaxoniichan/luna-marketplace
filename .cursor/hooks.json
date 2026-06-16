@@ -4,7 +4,8 @@
     "beforeShellExecution": [
       { "command": "node ./scripts/hooks/block-no-verify.js", "timeout": 5 },
       { "command": "node ./scripts/hooks/secret-read-guard.js", "timeout": 5 },
-      { "command": "node ./scripts/hooks/url-safety-guard.js", "timeout": 5 }
+      { "command": "node ./scripts/hooks/url-safety-guard.js", "timeout": 5 },
+      { "command": "node ./scripts/hooks/dedupe-guard.js", "timeout": 15 }
     ],
     "beforeReadFile": [
       { "command": "node ./scripts/hooks/secret-read-guard.js", "timeout": 5 }

@@ -14,11 +14,12 @@ same in-repo source of truth.
 ```
 AGENTS.md                    (+ CLAUDE.md -> AGENTS.md symlink if missing)
 docs/SYSTEM_DESIGN.md
-docs/PROJECT_STRUCTURE.md
+docs/PROJECT_STRUCTURES.md
 docs/PLANS.md
 docs/TODO.md
 docs/workflows/WORKFLOW.md
 .claude/rules/lessons.md     (don't-repeat lessons; Claude auto-loads .claude/rules/)
+.jscpd.json                  (duplicate-detection config; read by review-simplify + dedupe-guard hook)
 ```
 
 Created **on first use**, not pre-scaffolded: `docs/plans/<feature>.md` (by `dev-plan`),
@@ -54,16 +55,77 @@ frontmatter to each):
 Also create `.cursor/rules/luna.mdc` (`alwaysApply: true`; read `docs/workflows/WORKFLOW.md`; skills are
 independent; follow `AGENTS.md`).
 
+## Module detection
+
+Before scaffolding, run the module detector to discover independently-tracked sub-projects:
+
+```bash
+node <plugin-root>/scripts/detect-modules.mjs [<project-root>]
+# or for machine-readable output:
+node <plugin-root>/scripts/detect-modules.mjs --json [<project-root>]
+```
+
+A directory is a **module target** if it contains `CLAUDE.md` or `AGENTS.md`. Built-in skip list
+excludes `node_modules`, `.git`, `dist`, `build`, hidden dirs, etc.
+
+### Module minimum set
+
+For each detected module, scaffold the same minimum set as the root — but scoped to that module's
+subdirectory. Only create missing files; never overwrite.
+
+```
+<module>/docs/SYSTEM_DESIGN.md
+<module>/docs/PROJECT_STRUCTURES.md
+<module>/docs/PLANS.md
+<module>/docs/TODO.md
+<module>/docs/workflows/WORKFLOW.md
+<module>/.claude/rules/lessons.md
+```
+
+If the module already has `AGENTS.md` but no `CLAUDE.md` symlink, create the symlink.
+If the module has neither, **skip** it (should not happen given the detection heuristic, but
+guard against it).
+
+Report per-module: `[module-name] created: X, skipped: Y`.
+
 ## Process
 
 1. Detect project root (git root or cwd).
-2. For each minimum-set path, if missing → create from Luna Agent Kit templates.
-3. If `CLAUDE.md` missing and `AGENTS.md` exists → `ln -s AGENTS.md CLAUDE.md`.
-4. Cross-tool: symlink `.cursor/skills` → plugin's `skills/` dir; write `.cursor/rules/*.mdc`;
+2. Run `detect-modules.mjs` against the project root → list of module targets.
+3. For each minimum-set path at root level, if missing → create from Luna Agent Kit templates.
+4. If `CLAUDE.md` missing and `AGENTS.md` exists → `ln -s AGENTS.md CLAUDE.md`.
+5. For each detected module → scaffold module minimum set (same idempotency rules).
+6. Cross-tool: symlink `.cursor/skills` → plugin's `skills/` dir; write `.cursor/rules/*.mdc`;
    write `.cursor/hooks.json` using **absolute paths** resolved from `$CLAUDE_PLUGIN_ROOT` at init
    time (e.g. `node /absolute/path/to/plugin/scripts/hooks/bash-guards.js`) — relative paths break
    because the plugin scripts live in the plugin cache, not the app repo.
-5. Report created vs skipped paths.
+7. Report created vs skipped paths — root first, then one section per module.
+
+## Duplicate-detection config (`.jscpd.json`)
+
+Scaffold one baseline `.jscpd.json` at the repo root (idempotent — never overwrite). It is the
+single source jscpd reads for both the on-demand `review-simplify` pass and the `dedupe-guard`
+commit hook, covering all languages in the repo (Python, TS/JS, Go, …) from one tool. Baseline:
+
+```json
+{
+  "threshold": 0,
+  "minLines": 5,
+  "minTokens": 50,
+  "gitignore": true,
+  "absolute": false,
+  "ignore": [
+    "**/node_modules/**", "**/dist/**", "**/build/**", "**/.next/**",
+    "**/.venv/**", "**/venv/**", "**/__pycache__/**", "**/*.min.*",
+    "**/migrations/**", "**/*.lock", "**/*-lock.json", "**/vendor/**"
+  ]
+}
+```
+
+`threshold: 0` keeps it report-only (never fails a run — the hook is advisory). A module that wants
+stricter limits can get its own `<module>/.jscpd.json`; use the module list from `detect-modules.mjs`
+to decide where, but only scaffold per-module configs when the user asks (root config already
+covers the whole tree).
 
 ## Templates
 
@@ -71,6 +133,7 @@ independent; follow `AGENTS.md`).
 - **TODO.md** — backlog table with `Plan file` + `Plan phase` columns
 - **lessons.md** — header + format line, no entries
 - **WORKFLOW.md** — copy this repo's `docs/workflows/WORKFLOW.md`
+- **.jscpd.json** — baseline above
 
 ## Do not
 

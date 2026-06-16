@@ -13,7 +13,7 @@ the doc obligation — agent docs (PLANS/TODO) belong to `doc-update-agent`. Nev
 | Doc | Update when |
 |-----|-------------|
 | `docs/SYSTEM_DESIGN.md` | architecture, mechanisms, data flow, or a new hook/agent changed |
-| `docs/PROJECT_STRUCTURE.md` | files/dirs added/moved/removed; the tree or a table is now wrong |
+| `docs/PROJECT_STRUCTURES.md` | files/dirs added/moved/removed; the tree or a table is now wrong |
 | `docs/DATABASE_DESIGN.md` | schema, tables, columns, or migrations changed |
 | `docs/DESIGN_SYSTEM.md` | tokens, components, or UI conventions changed |
 | `docs/api/*` | endpoint, contract, or request/response shape changed |

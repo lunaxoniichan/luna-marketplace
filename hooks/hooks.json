@@ -25,6 +25,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" gitnexus-freshness",
             "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/dedupe-guard.js\"",
+            "timeout": 15
           }
         ]
       },

@@ -35,7 +35,7 @@ isProject: false
 # Luna Agent Kit — Custom Superpowers Plugin Plan
 
 > **⚠️ This document is the original v1 plan, kept for history.** Current design + build state are
-> canonical in `docs/TOOLS_LIST.md`, `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURE.md`. Several v1
+> canonical in `docs/TOOLS_LIST.md`, `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURES.md`. Several v1
 > ideas below were **superseded** — see the "Superseded" list in Build status before implementing anything.
 
 ## Build status — Phases 1–4 complete (eval/acceptance polish outstanding)

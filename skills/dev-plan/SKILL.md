@@ -29,6 +29,13 @@ Save to: **`docs/plans/YYYY-MM-DD-<feature-name>.md`**
 ---
 ```
 
+## Before planning new code
+
+Check what already exists so the plan reuses instead of duplicates. On a multi-module repo, run
+GitNexus **`group_query`** to search every module at once (a helper you'd add may already live in a
+sibling module); fall back to `query`/`context` for single-repo or to drill into a hit. See the
+codebase-awareness rule.
+
 ## Task rules
 
 - Bite-sized steps (2–5 min each): failing test → run → implement → run → commit

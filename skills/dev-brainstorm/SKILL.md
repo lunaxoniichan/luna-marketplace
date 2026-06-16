@@ -15,7 +15,8 @@ Do NOT write implementation code, scaffold projects, or take implementation acti
 
 Create a task for each; complete in order:
 
-1. **Explore context** — files, docs, recent commits; query GitNexus for related code
+1. **Explore context** — files, docs, recent commits; query GitNexus for related code (on a
+   multi-module repo use `group_query` to search every module at once — reuse beats rebuild)
 2. **Ask clarifying questions** — one at a time; prefer multiple choice
 3. **Propose 2–3 approaches** — trade-offs + recommendation
 4. **Present design** — scaled to complexity; user approval per section for large designs
