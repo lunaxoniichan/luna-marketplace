@@ -5,7 +5,7 @@ vibe-coding a consistent, gated workflow plus three pieces of project memory tha
 plugins don't provide: **corrections captured as native rules**, **plan↔commit traceability**, and **GitNexus
 index freshness**.
 
-> **Build status:** Phases 1–4 complete — 36 skills, 7 agents, 9 hooks, 6 rules,
+> **Build status:** Phases 1–4 complete — 37 skills, 8 agents, 9 hooks, 6 rules,
 > `build-plans-registry.mjs` + `detect-modules.mjs`, and the `.cursor/` cross-tool layer.
 > See `docs/TOOLS_LIST.md` for the full inventory.
 
@@ -57,11 +57,19 @@ into published docs).
 - **GitNexus freshness** — before writing new code, query GitNexus for an existing implementation;
   the index is auto-reindexed (async, guardrailed) when HEAD moves past the indexed commit.
 
+**Duplicate detection:** kit repos pin `jscpd` in root `package.json` (`npm run jscpd` for baseline,
+`npm run jscpd:json` for reports). `doc-init` scaffolds `.jscpd.json`; `dedupe-guard` warns on staged
+clones at commit time. Cleanup sprints use **`dev-refactor`** / **`refactor-cleaner`**; PR-time passes
+use **`review-simplify`** (diff-scoped only). Monorepos with git submodules: run `gitnexus analyze` per
+repo; use `group_sync` / `group_query` for cross-module dupes. Submodule hooks:
+`gitnexus-submodule-advisory` (edit-time warn), `gitnexus-submodule-sync` (post-commit reindex).
+Playbook: `docs/specs/monorepo-refactor-playbook.md`.
+
 ## Skill naming
 
 Every skill carries a category prefix so similar skills group and are easy to recall: `workflow-`,
 **`dev-`** (core lifecycle: `dev-brainstorm`, `dev-plan`, `dev-execute`, `dev-tdd`, `dev-debug`,
-`dev-verify`, `dev-commit`, `dev-research`, `dev-audit`), `review-`, `doc-`, `skill-`, `hook-`,
+`dev-verify`, `dev-commit`, `dev-refactor`, `dev-research`, `dev-audit`), `review-`, `doc-`, `skill-`, `hook-`,
 `kwb-` (knowledge base, from ECC), `design-`. Full map in `docs/TOOLS_LIST.md`.
 
 ## Cross-tool (Claude Code + Cursor)
@@ -92,6 +100,7 @@ returns `ask` rather than serve a stale graph) and honor opt-out env vars:
 | `LUNA_WEB_GUARD` | `on` | `off` disables HTTPS-only + source-list enforcement |
 | `LUNA_DOC_SYNC_REMINDER` | `on` | `off` silences the Stop-hook doc reminder |
 | `LUNA_DEDUPE_GUARD` | `on` | `off` disables the pre-commit jscpd duplicate warning |
+| `LUNA_GITNEXUS_SUBMODULE_ADVISORY` | `on` | `off` silences stale/missing submodule index warnings on Read/Write/Edit |
 | `LUNA_LESSONS_AUTOEXTRACT` | `on` | `off` (or a `.claude/.no-reflect` marker) disables auto lesson capture |
 
 ## Reference forks (read-only)
@@ -99,3 +108,47 @@ returns `ask` rather than serve a stale graph) and honor opt-out env vars:
 `fork/superpowers`, `fork/ECC`, `fork/claude-plugins-official` are vendored references only. They are
 **not** loaded at runtime. We copy/adapt selected components from them — see `docs/TOOLS_LIST.md` for
 exactly what, from where, and why.
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **luna-marketplace** (65412 symbols, 78753 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/luna-marketplace/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/luna-marketplace/clusters` | All functional areas |
+| `gitnexus://repo/luna-marketplace/processes` | All execution flows |
+| `gitnexus://repo/luna-marketplace/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+
+<!-- gitnexus:end -->

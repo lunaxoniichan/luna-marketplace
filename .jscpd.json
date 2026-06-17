@@ -1,0 +1,22 @@
+{
+  "threshold": 100,
+  "minLines": 5,
+  "minTokens": 50,
+  "gitignore": true,
+  "absolute": false,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/__pycache__/**",
+    "**/*.min.*",
+    "**/migrations/**",
+    "**/*.lock",
+    "**/*-lock.json",
+    "**/vendor/**",
+    "**/fork/**"
+  ]
+}

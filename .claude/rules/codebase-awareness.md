@@ -15,5 +15,13 @@ Semantic search misses near-clones that are copy-pasted with small edits. Pair t
 GitNexus query above with the **reactive** `jscpd` pass (see `review-simplify` + the `dedupe-guard`
 commit hook) to catch duplication after the fact.
 
+For **repo-wide dedupe, module reshaping, or delete sprints**, use **`dev-refactor`** (or the
+**`refactor-cleaner`** agent) — not `review-simplify`, which is diff-scoped only.
+
+**Monorepo + git submodules:** each submodule may have its own `.gitnexus/` index. Run
+`npx gitnexus analyze` inside each repo you edit; use **`group_query`** for cross-module dupes.
+Commit inside submodules first, then bump the parent pointer. Hooks: `gitnexus-submodule-advisory`,
+`gitnexus-submodule-sync` (see `dev-refactor` § Monorepo + submodules).
+
 Use installed GitNexus skills (`gitnexus-exploring`, `gitnexus-impact-analysis`, etc.) — do not
 re-author them.

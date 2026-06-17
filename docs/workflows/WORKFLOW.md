@@ -10,6 +10,9 @@ variants:
   spike:
     skip_phases: [dev-plan]
     note: Time-boxed exploration — dev-brainstorm optional; no plan file required.
+  refactor:
+    skip_phases: [dev-brainstorm, system-design]
+    note: Dedupe/cleanup sprint — dev-refactor (+ refactor-cleaner agent); review-simplify only for post-batch spot-checks.
 phases:
   - id: dev-brainstorm
     gate: user_approval
@@ -33,6 +36,7 @@ phases:
       - dev-parallel
       - review-code
       - review-simplify
+      - dev-refactor
       - review-security
       - review-performance
       - doc-update-project
@@ -73,6 +77,7 @@ flowchart LR
 | `trivial` | dev-brainstorm, system-design | Typo, one-line fix, obvious change |
 | `fix` | dev-brainstorm, system-design | Known bug, clear reproduction |
 | `spike` | dev-plan | Exploration/prototype, time-boxed |
+| `refactor` | dev-brainstorm, system-design | Dedupe/cleanup sprint — dev-refactor; plan in docs/plans/ |
 
 ## Changing this file
 

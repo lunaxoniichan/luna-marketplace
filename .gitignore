@@ -6,6 +6,9 @@ __pycache__/
 
 # Hook runtime artifacts (never commit)
 .gitnexus/
-.claude/.luna-cache/
-.claude/.no-reflect
+**/.claude/
+.claude/
 .idea/
+.jscpd-report/
+**/.cursor/
+.cursor/

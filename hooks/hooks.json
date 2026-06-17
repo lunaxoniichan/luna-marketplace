@@ -40,6 +40,11 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/secret-read-guard.js\"",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/gitnexus-submodule-advisory.js\"",
+            "timeout": 5
           }
         ]
       },

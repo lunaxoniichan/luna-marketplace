@@ -43,7 +43,7 @@ flowchart TD
 
 1. **Process** — `dev-brainstorm`, `dev-debug`, `dev-plan`
 2. **Implementation** — `dev-tdd`, `dev-execute`, domain/`kwb-*` (Phase 3+)
-3. **Review** — `review-code`, `review-simplify`
+3. **Review** — `review-code`, `review-simplify` (diff-scoped); cleanup sprints → `dev-refactor` / `refactor-cleaner` agent
 4. **Finish** — `dev-verify`, `dev-commit`
 
 "Let's build X" → check `dev-brainstorm` first (unless `trivial` variant).

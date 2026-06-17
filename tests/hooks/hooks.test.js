@@ -10,6 +10,7 @@ const {
   isGitCommit,
   summarizeReport,
   run: runDedupeGuard,
+  resolveJscpdBin,
 } = require('../../scripts/hooks/dedupe-guard');
 
 let passed = 0;
@@ -180,6 +181,64 @@ test('dedupe-guard run() short-circuits to exit 0 when opted out', () => {
 test('dedupe-guard run() ignores non-commit commands', () => {
   const r = runDedupeGuard(JSON.stringify({ tool_input: { command: 'npm test' } }));
   assert(r.exitCode === 0 && !r.systemMessage, 'should be silent exit 0');
+});
+
+test('dedupe-guard resolveJscpdBin finds kit node_modules when present', () => {
+  const { join } = require('path');
+  const kitRoot = join(__dirname, '..', '..');
+  const bin = resolveJscpdBin(kitRoot);
+  if (bin) {
+    assert(bin.includes('jscpd'), 'should resolve jscpd binary path');
+  }
+});
+
+// --- gitnexus-submodules lib ---
+
+const {
+  parseGitmodules,
+  submoduleForPath,
+  findProjectRoot,
+} = require('../../scripts/lib/gitnexus-submodules');
+const { isGitCommit: isSubmoduleSyncCommit } = require('../../scripts/hooks/gitnexus-submodule-sync');
+
+test('parseGitmodules reads path entries', () => {
+  const { mkdtempSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-gitmod-'));
+  try {
+    writeFileSync(join(dir, '.gitmodules'), [
+      '[submodule "data-pipeline"]',
+      '\tpath = data-pipeline',
+      '\turl = git@example.com/pipeline.git',
+    ].join('\n'));
+    const mods = parseGitmodules(dir);
+    assert(mods.length === 1 && mods[0].path === 'data-pipeline', 'should parse submodule');
+    const sm = submoduleForPath(dir, 'data-pipeline/src/foo.py');
+    assert(sm && sm.name === 'data-pipeline', 'should map file to submodule');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('findProjectRoot locates .gitmodules ancestor', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-root-'));
+  try {
+    writeFileSync(join(dir, '.gitmodules'), '[submodule "x"]\n\tpath = x\n');
+    const nested = join(dir, 'backend', 'app');
+    mkdirSync(nested, { recursive: true });
+    assert(findProjectRoot(nested) === dir, 'should find project root');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('gitnexus-submodule-sync detects git commit', () => {
+  assert(isSubmoduleSyncCommit('git commit -m "x"') === true, 'commit');
+  assert(isSubmoduleSyncCommit('npm test') === false, 'not commit');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

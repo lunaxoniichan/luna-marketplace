@@ -42,7 +42,7 @@ except Exception:
     print('')
 " 2>/dev/null)
 
-printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]])(npx[[:space:]]+(--no-install[[:space:]]+)?)?gitnexus[[:space:]]+(impact|context|query|detect_changes|cypher)\b' || exit 0
+printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]])(npx[[:space:]]+(--no-install[[:space:]]+)?)?gitnexus[[:space:]]+(impact|context|query|detect_changes|cypher|rename|group_query|group_sync|group_list|group_status)\b' || exit 0
 
 # A reindex is already running — let the query ride.
 [ -e "$IN_PROGRESS" ] && exit 0

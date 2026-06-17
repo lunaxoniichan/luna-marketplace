@@ -9,13 +9,14 @@
  * proactive GitNexus query (codebase-awareness rule) with a reactive floor.
  *
  * Purely advisory — never blocks (fail-OPEN, always exit 0). It only nudges; the
- * deep, cross-repo cleanup (jscpd + GitNexus semantic matches) lives in the
- * `review-simplify` skill.
+ * deep, cross-repo cleanup lives in the `dev-refactor` skill (or `refactor-cleaner` agent);
+ * diff-scoped passes use `review-simplify`.
  *
  * Scope: staged source files only (fast, bounded). Detects copy-paste within and
  * across the files this commit touches — not a whole-repo scan.
  *
- * Requires `npx`/`jscpd` to be resolvable; if not, it skips silently.
+ * Resolves jscpd from `node_modules/.bin` (walk up from cwd) then `npx jscpd`.
+ * If unavailable, logs one line to stderr and skips (fail-open).
  * Opt-out: LUNA_DEDUPE_GUARD=off.
  *
  * Exit codes: always 0 (advisory).
@@ -26,7 +27,7 @@
 const { execFileSync } = require('child_process');
 const { mkdtempSync, readFileSync, rmSync, existsSync } = require('fs');
 const { tmpdir } = require('os');
-const { join } = require('path');
+const { join, dirname } = require('path');
 
 const MAX_STDIN = 1024 * 1024;
 const SOURCE_RE = /\.(js|mjs|cjs|ts|tsx|jsx|py|go|rs|java|rb|php|swift|kt|cs|cpp|cc|c|h|hpp|scala|m)$/i;
@@ -112,19 +113,48 @@ function stagedSourceFiles(cwd) {
   }
 }
 
+// Walk up from cwd looking for node_modules/.bin/jscpd (kit or app repo).
+function resolveJscpdBin(startDir) {
+  let dir = startDir;
+  for (let i = 0; i < 20; i++) {
+    const local = join(dir, 'node_modules', '.bin', 'jscpd');
+    if (existsSync(local)) return local;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 // Run jscpd over the given files; return the parsed report or null on any failure.
 function runJscpd(files, cwd) {
+  const jscpdBin = resolveJscpdBin(cwd);
+  const jscpdArgs = [...files, '--silent', '--reporters', 'json', '--output'];
   let outDir;
   try {
     outDir = mkdtempSync(join(tmpdir(), 'luna-dedupe-'));
-    execFileSync(
-      'npx',
-      ['--no-install', 'jscpd', ...files, '--silent', '--reporters', 'json', '--output', outDir],
-      { cwd, encoding: 'utf8', stdio: ['ignore', 'ignore', 'ignore'], timeout: JSCPD_TIMEOUT_MS }
-    );
+    jscpdArgs.push(outDir);
+    if (jscpdBin) {
+      execFileSync(jscpdBin, jscpdArgs, {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'ignore', 'ignore'],
+        timeout: JSCPD_TIMEOUT_MS,
+      });
+    } else {
+      execFileSync('npx', ['jscpd', ...jscpdArgs], {
+        cwd,
+        encoding: 'utf8',
+        stdio: ['ignore', 'ignore', 'ignore'],
+        timeout: JSCPD_TIMEOUT_MS,
+      });
+    }
   } catch {
     // jscpd exits non-zero when a threshold trips — the report is still written,
     // so fall through to read it. Genuine failures (no npx/jscpd) leave no report.
+    if (!jscpdBin && !existsSync(join(outDir || '', 'jscpd-report.json'))) {
+      process.stderr.write('dedupe-guard: jscpd not found — run npm install in the kit repo or install jscpd globally\n');
+    }
   }
   try {
     const reportPath = join(outDir, 'jscpd-report.json');
@@ -155,7 +185,7 @@ function run(rawInput) {
   return message ? { exitCode: 0, systemMessage: message } : { exitCode: 0 };
 }
 
-module.exports = { run, isGitCommit, summarizeReport };
+module.exports = { run, isGitCommit, summarizeReport, resolveJscpdBin };
 
 if (require.main === module) {
   let raw = '';

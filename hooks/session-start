@@ -34,7 +34,10 @@ workflow_guide_content=$(cat "${PLUGIN_ROOT}/skills/workflow-guide/SKILL.md" 2>&
 
 freshness_note=""
 if command -v gitnexus >/dev/null 2>&1 && [[ -d "${PROJECT_ROOT}/.git" ]]; then
-    freshness_note="\\n\\n**GitNexus:** Query GitNexus (query/context) before writing new code. The index auto-reindexes when stale — synchronously before a stale read op (gitnexus-freshness gate) and asynchronously after each commit (gitnexus-post-commit). Opt out with LUNA_GITNEXUS_AUTOSYNC=off."
+    freshness_note="\\n\\n**GitNexus:** Query GitNexus (query/context) before writing new code. The index auto-reindexes when stale — synchronously before a stale read op (gitnexus-freshness gate, incl. rename/group_query) and asynchronously after each commit (gitnexus-post-commit + submodule sync). Opt out with LUNA_GITNEXUS_AUTOSYNC=off."
+    if [[ -f "${PROJECT_ROOT}/.gitmodules" ]]; then
+        freshness_note="${freshness_note}\\n\\n**Submodules:** Each submodule may have its own \`.gitnexus/\` index — run \`npx gitnexus analyze\` inside each before refactor; use \`group_query\` / \`group_sync\` for cross-module dupes. See \`dev-refactor\` § Monorepo + submodules."
+    fi
 fi
 
 workflow_escaped=$(escape_for_json "$workflow_guide_content")

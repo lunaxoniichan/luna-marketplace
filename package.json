@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "jscpd": "jscpd --silent --reporters consolefull .",
+    "jscpd:json": "jscpd --silent --reporters json --output .jscpd-report .",
+    "test:hooks": "node tests/hooks/hooks.test.js"
+  },
+  "devDependencies": {
+    "jscpd": "^4.0.5"
+  }
+}

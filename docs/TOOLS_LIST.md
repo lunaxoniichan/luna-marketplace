@@ -72,7 +72,8 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | # | Name | Action | Source | Reason / pain | Phase | Your call |
 |---|------|--------|--------|---------------|-------|-----------|
 | 12 | review-code | adapt | superpowers/skills/requesting-code-review | logic/correctness report (#3) | 1 | |
-| 13 | review-simplify | adapt | cpo/plugins/pr-review-toolkit/agents/code-simplifier.md | dedupe / dead-code / over-complexity (#3,#8); Duplication pass = jscpd (deterministic) + GitNexus `query`/`group_query` (semantic) | 1 | |
+| 13 | review-simplify | adapt | cpo/plugins/pr-review-toolkit/agents/code-simplifier.md | **diff-scoped** dedupe / dead-code / complexity (#3,#8); jscpd on changed paths + light GitNexus; full sprints → `dev-refactor` | 1 | |
+| 13b | dev-refactor | new | (ref `docs/specs/code-intelligence-tools-comparison.md` §6.3) | **repo/domain cleanup sprint** orchestration — inventory → consolidate → reshape → delete; jscpd + GitNexus; delegates to gitnexus-* skills | post-4 | done |
 | 14 | review-security | adapt (trim 503→<250) | ECC/skills/security-review | OWASP / secrets review | 2 | |
 | 15 | review-performance | new | (ref ECC/rules/common/performance.md) | hot-path / N+1 / allocation review — completes `review-internal` set | 2 | |
 
@@ -131,6 +132,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | A5 | document-project | new (optional) | — | apply `doc-update-project` / `doc-simplify` to named paths | 4 | |
 | A6 | document-agent | new (optional) | — | apply `doc-update-agent` to PLANS/TODO + lessons | 4 | |
 | A7 | dev-brainstorm | new (optional) | superpowers/skills/brainstorming | Socratic design session as a subagent (agent form of the `dev-brainstorm` skill) | 4 | |
+| A8 | refactor-cleaner | new | (adapt ECC/agents/refactor-cleaner.md) | **cleanup sprint executor** — follows `dev-refactor` phases; jscpd + GitNexus first; mutates in small batches (#3,#8) | post-4 | done |
 
 > `document-project` and `document-agent` are **two separate agents** (no slash) — one per doc class.
 > **Cut:** `workflow-manager` — native Task tools (`TaskCreate`/`TaskUpdate`/`TaskGet`/`TaskList`,
@@ -149,7 +151,9 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | H5 | url-safety-guard | adapt (flynance, node) | flynance web_source_guard.py | PreToolUse WebFetch/Bash: HTTPS-only + allow/deny lists; `LUNA_WEB_GUARD=off` | 2 | done |
 | H6 | secret-read-guard | adapt (flynance, node) | flynance secret_guard.sh | PreToolUse Read/Write/Edit/Bash: block `.env`/key/secret access; `LUNA_SECRET_GUARD=off` | 2 | done |
 | H7 | lessons-extractor | adapt (flynance) | flynance approach_correction_extractor.sh + _lib | SessionEnd: detached Haiku pass → append lessons.md + native feedback memory; `LUNA_LESSONS_AUTOEXTRACT=off` (#1, **active**) | 2 | done |
-| H8 | dedupe-guard | new (node) | jscpd | PreToolUse Bash `git commit`: run jscpd on staged source → advisory clone warning; fail-open; `LUNA_DEDUPE_GUARD=off` (#3) | post-4 | done |
+| H8 | dedupe-guard | new (node) | jscpd | PreToolUse Bash `git commit`: run jscpd on staged source → advisory clone warning; resolves `node_modules/.bin/jscpd`; fail-open; `LUNA_DEDUPE_GUARD=off` (#3) | post-4 | done |
+| H9 | gitnexus-submodule-advisory | new (node) | flynance submodule pattern | PreToolUse Read/Write/Edit: warn when submodule index missing/stale; `LUNA_GITNEXUS_SUBMODULE_ADVISORY=off` | post-4 | done |
+| H9b | gitnexus-submodule-sync | new (node) | extends post-commit | PostToolUse commit: async `gitnexus analyze` in submodules when pointer bumped or commit inside submodule | post-4 | done |
 
 ## Rules / scripts / config
 
@@ -230,7 +234,9 @@ The 4-layer tool survey (graph / duplicate-detection / architecture / pattern-se
 | Pattern search | **dropped** | **semgrep / ast-grep** — redundant with GitNexus (find + `gitnexus-refactoring`) and jscpd (clones) for our use cases |
 
 Proactive (GitNexus query before writing) + reactive (jscpd via `review-simplify` + `dedupe-guard`
-hook) covers refactoring, new-feature-without-duplication, and cross-module find.
+hook) + strategic (`dev-refactor` / `refactor-cleaner` agent for cleanup sprints) covers
+refactoring, new-feature-without-duplication, and cross-module find. Kit pins jscpd in root
+`package.json` (`npm run jscpd`); `doc-init` scaffolds `.jscpd.json` from `templates/.jscpd.json`.
 
 ---
 

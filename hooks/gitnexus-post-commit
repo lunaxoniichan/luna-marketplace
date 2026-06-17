@@ -32,10 +32,6 @@ except Exception:
 
 printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]]|;|&|\|)git[[:space:]]+(commit|merge)\b' || exit 0
 
-# Only proceed if no index has been built? No — analyze is idempotent. But if
-# there's no .gitnexus dir at all, the user hasn't opted into GitNexus here.
-[ -d "$PROJECT_DIR/.gitnexus" ] || exit 0
-
 # Skip if the tool call reported a non-zero exit (commit/merge failed).
 EXIT_CODE=$(printf '%s' "$INPUT" | python3 -c "
 import sys, json
@@ -47,6 +43,20 @@ try:
 except Exception: print('')
 " 2>/dev/null)
 [ -n "$EXIT_CODE" ] && [ "$EXIT_CODE" != "0" ] && exit 0
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "${HOOK_DIR}/.." && pwd)}"
+
+# Submodule repos: async reindex when pointer bumped or commit inside submodule.
+# Runs even when the parent repo has no .gitnexus/ (submodules index separately).
+if command -v node >/dev/null 2>&1; then
+    CLAUDE_PROJECT_DIR="$PROJECT_DIR" node "${PLUGIN_ROOT}/scripts/hooks/gitnexus-submodule-sync.js" <<<"$INPUT" \
+        </dev/null >/dev/null 2>&1 &
+    disown $! 2>/dev/null || true
+fi
+
+# Parent repo reindex — only when GitNexus is enabled here.
+[ -d "$PROJECT_DIR/.gitnexus" ] || exit 0
 
 if command -v gitnexus >/dev/null 2>&1; then
     ANALYZE="gitnexus analyze"

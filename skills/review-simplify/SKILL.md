@@ -1,49 +1,60 @@
 ---
 name: review-simplify
-description: Use after code changes to reduce duplication, dead code, and unnecessary complexity while preserving behavior
+description: Use after code changes to reduce duplication, dead code, and unnecessary complexity within the diff — preserve behavior. For repo-wide cleanup sprints use dev-refactor instead.
 ---
 
 # Review simplify
 
-Find redundancy, dead code, and over-complexity. **Preserve exact behavior** — simplify how, not what.
+Find redundancy, dead code, and over-complexity **in changed files**. **Preserve exact behavior** —
+simplify how, not what.
+
+> **Scope is the diff.** For repo-wide dedupe, module reshaping, or delete sprints → use
+> **`dev-refactor`** (or the **`refactor-cleaner`** agent).
 
 ## When to use
 
 - After a logical chunk of implementation
 - Before merge when files grew large or tangled
+- Simplification lens inside **`review-internal`** at PR time
 - Optional from the execute-phase menu in `WORKFLOW.md`
 
-## Focus
+## When NOT to use
 
-1. **Duplication** — merge repeated logic; reuse existing utilities (see Duplication pass below)
-2. **Dead code** — unused imports, unreachable branches, orphaned helpers
-3. **Complexity** — deep nesting, nested ternaries, oversized functions/files
-4. **Scope** — recently modified files unless user widens scope
+- Full-repo clone inventory or cleanup sprint → **`dev-refactor`**
+- Coordinated multi-file rename campaigns → **`gitnexus-refactoring`** via **`dev-refactor`**
+- Module boundary redesign → **`dev-refactor`** Phase C
 
-## Duplication pass (deterministic + semantic)
+## Focus (changed files only)
 
-Catch both copy-paste clones and concept-level duplicates:
+1. **Duplication** — clones in touched paths; reuse existing utilities
+2. **Dead code** — unused imports, unreachable branches, orphaned helpers in the diff
+3. **Complexity** — deep nesting, nested ternaries, oversized functions introduced in the diff
 
-1. **jscpd (deterministic floor)** — run the copy/paste detector for exact + near clones across
-   150+ languages (one tool covers Python, TS/JS, Go, etc.):
+## Duplication pass (scoped)
+
+1. Identify changed paths: `git diff --name-only` (or session edits)
+2. **jscpd on touched paths only:**
    ```bash
-   npx jscpd --silent --reporters consolefull <paths>
+   npm run jscpd -- path/to/changed1 path/to/changed2
+   # fallback if no package.json:
+   npx jscpd --silent --reporters consolefull path/to/changed1
    ```
-   It reads the repo's `.jscpd.json` (scaffolded by `doc-init`) for thresholds and ignore globs.
-2. **GitNexus (semantic)** — jscpd misses logic that's the *same idea* written differently. Run
-   `query` (or `group_query` on a multi-module repo) for the behavior you're consolidating to find
-   semantically-similar implementations in sibling modules.
-3. **Merge** — combine both findings; propose one canonical implementation and route callers to it.
+   Reads `.jscpd.json` (scaffolded by `doc-init`).
+3. **GitNexus (light)** — `query` or `context` for concepts in the diff; `group_query` if the
+   change might duplicate a sibling module
+4. Propose one canonical implementation; route callers if safe
 
-The `dedupe-guard` commit hook runs jscpd automatically (warn-only) — this skill is the deeper,
-on-demand cleanup that also folds in GitNexus semantic matches.
+The `dedupe-guard` hook runs jscpd on **staged** files at commit time (advisory). This skill is the
+deeper pass on the full diff plus semantic matches.
 
 ## Process
 
 1. Identify changed files (`git diff` or session edits)
-2. Run the Duplication pass above; list simplification opportunities with risk level
+2. Run scoped duplication pass; list opportunities with risk level
 3. Apply safe simplifications or propose diffs for user approval
 4. Run tests after substantive edits; confirm output before claiming success
+
+If scope grows beyond the diff, stop and recommend **`dev-refactor`**.
 
 ## Balance
 
@@ -67,5 +78,6 @@ on-demand cleanup that also folds in GitNexus semantic matches.
 
 ## Do not
 
-- Auto-run after every task (unlike bundled SDD review chains)
+- Auto-run after every task
+- Run full-repo `jscpd` baseline (that's **`dev-refactor`** Phase A)
 - Change tests to match broken simplifications — behavior must stay green

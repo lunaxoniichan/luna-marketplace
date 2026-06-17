@@ -29,7 +29,9 @@ re-invoke it as a sub-agent):
    limits, sensitive-data exposure.
 3. **Performance** (`review-performance`) — N+1/query patterns, algorithmic cost, allocations, serial
    I/O, caching correctness.
-4. **Simplification** (`review-simplify`) — duplication, dead code, over-complexity (behavior-preserving).
+4. **Simplification** (`review-simplify`) — duplication, dead code, over-complexity **in the diff**
+   (behavior-preserving). For repo-wide cleanup sprints, recommend **`refactor-cleaner`** /
+   **`dev-refactor`** instead of widening simplify scope here.
 
 ## Process
 

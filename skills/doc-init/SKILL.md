@@ -103,13 +103,15 @@ Report per-module: `[module-name] created: X, skipped: Y`.
 
 ## Duplicate-detection config (`.jscpd.json`)
 
-Scaffold one baseline `.jscpd.json` at the repo root (idempotent — never overwrite). It is the
-single source jscpd reads for both the on-demand `review-simplify` pass and the `dedupe-guard`
-commit hook, covering all languages in the repo (Python, TS/JS, Go, …) from one tool. Baseline:
+Scaffold one baseline `.jscpd.json` at the repo root (idempotent — never overwrite). Copy from
+`templates/.jscpd.json` in the Luna Agent Kit plugin when present; otherwise use the baseline below.
+It is the single source jscpd reads for both the on-demand `review-simplify` pass and the
+`dedupe-guard` commit hook, covering all languages in the repo (Python, TS/JS, Go, …) from one tool.
+Baseline (same as `templates/.jscpd.json`):
 
 ```json
 {
-  "threshold": 0,
+  "threshold": 100,
   "minLines": 5,
   "minTokens": 50,
   "gitignore": true,
@@ -122,10 +124,15 @@ commit hook, covering all languages in the repo (Python, TS/JS, Go, …) from on
 }
 ```
 
-`threshold: 0` keeps it report-only (never fails a run — the hook is advisory). A module that wants
+`threshold: 100` keeps runs report-only (jscpd exits 0 unless duplication exceeds 100% — i.e. never
+fail on findings; the hook is advisory). A module that wants
 stricter limits can get its own `<module>/.jscpd.json`; use the module list from `detect-modules.mjs`
 to decide where, but only scaffold per-module configs when the user asks (root config already
 covers the whole tree).
+
+**Git submodules:** jscpd at the parent root scans checked-out submodule files on disk. Each
+submodule with its own `AGENTS.md` should also run `npx gitnexus analyze` inside that path — indexes
+are per-repo, not inherited from the parent. See `dev-refactor` § Monorepo + submodules.
 
 ## Templates
 
