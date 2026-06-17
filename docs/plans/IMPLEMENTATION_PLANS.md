@@ -400,7 +400,7 @@ luna-marketplace/
 ```json
 {
   "name": "luna-agent-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Luna marketplace agent workflows: configurable phases, structured docs, GitNexus-aware vibe coding",
   "hooks": "./hooks/hooks.json"
 }
