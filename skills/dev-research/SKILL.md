@@ -14,6 +14,9 @@ Produce thorough, **cited** research reports synthesized from multiple web sourc
 
 ## Workflow
 
+0. **Route first** — if the project has `docs/README.md`, check its catalog and `Agent keywords`
+   before searching externally. L1 routing → L2 GitNexus → L3 source → L4 external. Skip to step 1
+   only if the topic is external (library/framework/market research, not codebase internals).
 1. **Goal** — ask 1–2 quick clarifiers (learning vs deciding vs writing; angle/depth). "Just research
    it" → proceed with sensible defaults.
 2. **Plan** — break the topic into 3–5 sub-questions.

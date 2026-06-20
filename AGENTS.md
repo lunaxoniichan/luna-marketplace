@@ -5,7 +5,7 @@ vibe-coding a consistent, gated workflow plus three pieces of project memory tha
 plugins don't provide: **corrections captured as native rules**, **plan↔commit traceability**, and **GitNexus
 index freshness**.
 
-> **Build status:** Phases 1–4 complete — 37 skills, 8 agents, 9 hooks, 6 rules,
+> **Build status:** Phases 1–4 complete + v0.3.0 knowledge stack — 38 skills, 8 agents, 10 hooks, 7 rules,
 > `build-plans-registry.mjs` + `detect-modules.mjs`, and the `.cursor/` cross-tool layer.
 > See `docs/TOOLS_LIST.md` for the full inventory.
 
@@ -34,10 +34,12 @@ Skills are **independent**: none references or chains into another. Sequencing l
 
 Two doc classes — keep them separate:
 
-- **Project docs** (human/architecture): `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURES.md`,
+- **Project docs** (human/architecture): `docs/README.md` (catalog), `docs/SYSTEM_DESIGN.md`, `docs/PROJECT_STRUCTURES.md`,
   `docs/DATABASE_DESIGN.md`, `docs/DESIGN_SYSTEM.md`, `docs/api/*`. Maintained by `doc-update-project`.
 - **Agent docs** (workflow state): `docs/PLANS.md`, `docs/TODO.md`, plan files under `docs/plans/`.
   Maintained by `doc-update-agent`. (Corrections/lessons live in `.claude/rules/lessons.md`.)
+
+`docs/README.md` is the project doc catalog — it owns the doc map, catalog table, ownership rules, and read order. `AGENTS.md` links to it; it does not duplicate it.
 
 Design specs from brainstorming go in **`docs/specs/`** — never `docs/superpowers/` (that path leaks
 into published docs).
@@ -102,6 +104,9 @@ returns `ask` rather than serve a stale graph) and honor opt-out env vars:
 | `LUNA_DEDUPE_GUARD` | `on` | `off` disables the pre-commit jscpd duplicate warning |
 | `LUNA_GITNEXUS_SUBMODULE_ADVISORY` | `on` | `off` silences stale/missing submodule index warnings on Read/Write/Edit |
 | `LUNA_LESSONS_AUTOEXTRACT` | `on` | `off` (or a `.claude/.no-reflect` marker) disables auto lesson capture |
+| `LUNA_FILE_SIZE_GUARD` | `on` | `off` disables file-size advisory hook |
+| `LUNA_FILE_SIZE_WARN_LINES` | `300` | line count at which file-size hook emits a warning |
+| `LUNA_FILE_SIZE_ALERT_LINES` | `500` | line count at which file-size hook emits an alert |
 
 ## Reference forks (read-only)
 
@@ -112,7 +117,7 @@ exactly what, from where, and why.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **luna-marketplace** (65412 symbols, 78753 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **luna-marketplace** (65558 symbols, 78932 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

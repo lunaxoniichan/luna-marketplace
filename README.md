@@ -6,10 +6,10 @@ Local-first agent kit for **Claude Code + Cursor**: phased workflow, corrections
 
 | Component | Count |
 |-----------|-------|
-| Skills | 36 |
-| Agents | 7 |
-| Hooks | 7 |
-| Rules | 6 |
+| Skills | 38 |
+| Agents | 8 |
+| Hooks | 10 |
+| Rules | 7 |
 
 Each **app repo** gets its own `docs/workflows/WORKFLOW.md` (customize with `workflow-update`). Full list: [docs/TOOLS_LIST.md](docs/TOOLS_LIST.md).
 
@@ -49,7 +49,7 @@ Open Claude Code in **your application repository** (not `luna-marketplace`) and
 Run doc-init for this project.
 ```
 
-That creates the minimum docs in **your** repo (`AGENTS.md`, `docs/workflows/WORKFLOW.md`, `docs/PLANS.md`, `docs/TODO.md`, `.claude/rules/lessons.md`, `.cursor/` mirror). It only adds missing files — never overwrites existing ones. The plugin's other five behavioral rules load automatically from the plugin cache — you do not need to copy them. Commit the new files.
+That creates the minimum docs in **your** repo (`AGENTS.md`, `docs/README.md` catalog, `docs/workflows/WORKFLOW.md`, `docs/PLANS.md`, `docs/TODO.md`, `.claude/rules/lessons.md`, `.cursor/` mirror). It only adds missing files — never overwrites existing ones. The plugin's other five behavioral rules load automatically from the plugin cache — you do not need to copy them. Commit the new files.
 
 ### 3. Start working
 

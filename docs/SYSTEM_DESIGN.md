@@ -124,7 +124,23 @@ Adapted from flynance's proven hooks, split into two:
 Paired with the `codebase-awareness` rule: query GitNexus for an existing implementation before
 writing new code (kills "agent recreates code that already exists").
 
-## 5. Relationship to Claude native workflows (Ultraplan)
+## 5. Knowledge stack
+
+Agents resolve questions in this order — one question, one canonical layer:
+
+| Layer | Source | Answers |
+|-------|--------|---------|
+| **L1 Routing** | `docs/README.md` → task doc | What to read, what owns what |
+| **L2 Structure** | GitNexus MCP (`query`, `context`, `impact`) | Callers, callees, execution flows |
+| **L3 Invariants** | `lessons.md` · schemas · fidelity tests | Must-not-break rules |
+| **L4 External** | Context7 / library docs MCP | Third-party API semantics |
+
+`docs/README.md` is scaffolded by `doc-init` (from `templates/docs/README.md`). It holds a catalog
+table, ownership rules, and read order — never implementation details or call graphs.
+Rule: `.claude/rules/knowledge-stack.md` (mirrored to `.cursor/rules/knowledge-stack.mdc`).
+Golden reference: `flynance-main/data-pipeline/docs/README.md`.
+
+## 6. Relationship to Claude native workflows (Ultraplan)
 
 Complementary, not competing. Use native `/workflows` for 100+-file sweeps / mass migrations / 16+
 parallel agents. Use Luna Agent Kit for day-to-day gated feature work with local hooks, user

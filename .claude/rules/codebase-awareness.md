@@ -1,5 +1,14 @@
 # Codebase awareness (GitNexus)
 
+## Read order
+
+`docs/README.md` (routing) → GitNexus (structure) → source file (implementation).
+
+Before loading any source: check `docs/README.md` catalog for the owning doc and its `Agent keywords`.
+Before grepping for architecture: `gitnexus_query` or `gitnexus_context` — never paste call graphs into docs.
+
+## Before writing new code
+
 Before writing a **new** function, module, or service:
 
 1. **Single repo:** query GitNexus (`query`, `context`, or `impact`) for an existing implementation.

@@ -1,5 +1,12 @@
 # Documentation
 
+## Catalog (`docs/README.md`)
+
+`docs/README.md` owns the doc map, catalog table, ownership rules, and read order.
+Per-doc File index sections own path resolution for that doc's `[ref]` tags.
+`AGENTS.md` links to `docs/README.md`; it does not duplicate the catalog.
+Archive (`_archive/`) is excluded from catalogs — git history only.
+
 ## Two classes — never mix
 
 | Class | Paths | Maintained by |

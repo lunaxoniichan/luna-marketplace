@@ -13,6 +13,7 @@ same in-repo source of truth.
 
 ```
 AGENTS.md                    (+ CLAUDE.md -> AGENTS.md symlink if missing)
+docs/README.md               (project doc catalog; from templates/docs/README.md)
 docs/SYSTEM_DESIGN.md
 docs/PROJECT_STRUCTURES.md
 docs/PLANS.md
@@ -51,6 +52,7 @@ frontmatter to each):
 | `.claude/rules/git.md` | `.cursor/rules/git.mdc` |
 | `.claude/rules/codebase-awareness.md` | `.cursor/rules/codebase-awareness.mdc` |
 | `.claude/rules/lessons.md` | `.cursor/rules/lessons.mdc` |
+| `.claude/rules/knowledge-stack.md` | `.cursor/rules/knowledge-stack.mdc` |
 
 Also create `.cursor/rules/luna.mdc` (`alwaysApply: true`; read `docs/workflows/WORKFLOW.md`; skills are
 independent; follow `AGENTS.md`).
@@ -74,6 +76,7 @@ For each detected module, scaffold the same minimum set as the root — but scop
 subdirectory. Only create missing files; never overwrite.
 
 ```
+<module>/docs/README.md
 <module>/docs/SYSTEM_DESIGN.md
 <module>/docs/PROJECT_STRUCTURES.md
 <module>/docs/PLANS.md
@@ -136,6 +139,7 @@ are per-repo, not inherited from the parent. See `dev-refactor` § Monorepo + su
 
 ## Templates
 
+- **README.md** — copy from `templates/docs/README.md`; skip if exists (idempotent)
 - **PLANS.md** — registry table (`Spec · Plan · Phase · Owner · Last commit · Status · Resume hint`)
 - **TODO.md** — backlog table with `Plan file` + `Plan phase` columns
 - **lessons.md** — header + format line, no entries
@@ -148,3 +152,4 @@ are per-repo, not inherited from the parent. See `dev-refactor` § Monorepo + su
 - Pre-create empty `docs/plans/` or `docs/specs/` (created on first plan/spec)
 - Put specs under `docs/superpowers/`
 - Scaffold optional docs without the user asking
+- Pre-fill `docs/README.md` catalog rows — template ships with HTML-comment stubs; the user/agent fills them after reviewing actual project docs

@@ -69,6 +69,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/file-size-guard.js\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "Stop": [

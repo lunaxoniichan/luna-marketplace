@@ -1,0 +1,18 @@
+# {Project Name}
+
+> Agent routing index. Full catalog: docs/README.md
+
+## Entry
+- AGENTS.md — commands, env, submodule table, GitNexus config
+- docs/README.md — doc catalog, ownership rules, read order
+
+## Architecture
+- docs/SYSTEM_DESIGN.md
+- docs/PROJECT_STRUCTURES.md
+
+## Database
+- docs/DATABASE_DESIGN.md (if present)
+
+## Code structure
+Use GitNexus MCP (`npx gitnexus analyze`) — do not grep for call graphs.
+Cross-repo: `gitnexus group query <groupname> "<concept>"` (see AGENTS.md § GitNexus).

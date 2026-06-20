@@ -241,5 +241,56 @@ test('gitnexus-submodule-sync detects git commit', () => {
   assert(isSubmoduleSyncCommit('npm test') === false, 'not commit');
 });
 
+// --- file-size-guard ---
+
+const { check: fileSizeCheck } = require('../../scripts/hooks/file-size-guard');
+
+test('file-size-guard: silent below warn threshold for .md', () => {
+  const r = fileSizeCheck('/project/docs/SYSTEM_DESIGN.md', 200);
+  assert(r === null, 'should return null for 200 lines');
+});
+
+test('file-size-guard: warns at 301 lines for .md', () => {
+  const r = fileSizeCheck('/project/docs/SYSTEM_DESIGN.md', 301, { warnLines: 300, alertLines: 500 });
+  assert(r !== null && r.includes('WARN'), `expected WARN, got: ${r}`);
+  assert(r.includes('doc-simplify'), 'should suggest doc-simplify');
+});
+
+test('file-size-guard: alerts at 501 lines for .md', () => {
+  const r = fileSizeCheck('/project/docs/SYSTEM_DESIGN.md', 501, { warnLines: 300, alertLines: 500 });
+  assert(r !== null && r.includes('ALERT'), `expected ALERT, got: ${r}`);
+});
+
+test('file-size-guard: warns at 301 lines for .py', () => {
+  const r = fileSizeCheck('/project/backend/app/services/market.py', 301, { warnLines: 300, alertLines: 500 });
+  assert(r !== null && r.includes('WARN'), `expected WARN, got: ${r}`);
+  assert(r.includes('dev-refactor'), 'should suggest dev-refactor');
+});
+
+test('file-size-guard: silent for node_modules', () => {
+  const r = fileSizeCheck('/project/node_modules/foo/index.js', 9999);
+  assert(r === null, 'should ignore node_modules');
+});
+
+test('file-size-guard: silent for _archive', () => {
+  const r = fileSizeCheck('/project/docs/_archive/OLD.md', 9999);
+  assert(r === null, 'should ignore _archive');
+});
+
+test('file-size-guard: silent for migrations', () => {
+  const r = fileSizeCheck('/project/backend/migrations/001_init.py', 9999);
+  assert(r === null, 'should ignore migrations');
+});
+
+test('file-size-guard: silent for skill SKILL.md', () => {
+  const r = fileSizeCheck('/project/skills/doc-init/SKILL.md', 999);
+  assert(r === null, 'should ignore skill SKILL.md files');
+});
+
+test('file-size-guard: silent for non-doc non-code file (.json)', () => {
+  const r = fileSizeCheck('/project/package.json', 9999);
+  assert(r === null, 'should ignore .json files');
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

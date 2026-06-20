@@ -32,3 +32,4 @@ lessons. This is the **agent** half of the doc obligation — architecture docs 
 - Touch architecture docs — that's `doc-update-project`.
 - Hand-maintain the plan↔commit map when the script can derive it from `git log`.
 - Drop the date or the "use instead" half of a lesson — both are required.
+- Put catalog/ownership content in `PLANS.md` — that belongs in `docs/README.md` (project class). If the catalog looks stale, prompt the user to run `doc-update-project`.

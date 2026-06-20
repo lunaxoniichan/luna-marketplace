@@ -1,6 +1,6 @@
 # Luna Agent Kit — Tools Inventory
 
-Living component inventory. **Phases 1–4 are built** — 36 skills, 7 agents, 9 hooks, 6 rules, 2 scripts,
+Living component inventory. **Phases 1–4 complete + v0.3.0 knowledge stack** — 38 skills, 8 agents, 10 hooks, 7 rules, 2 scripts,
 the `.cursor/` cross-tool layer. The **Your call** column tracks per-row decisions.
 
 > **Post-Phase-1 build (this pass), per locked session decisions:** Phase-2 hooks were **adapted from
@@ -117,6 +117,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | # | Name | Action | Source | Reason / pain | Phase | Your call |
 |---|------|--------|--------|---------------|-------|-----------|
 | 36 | dev-parallel | copy | superpowers/skills/dispatching-parallel-agents | dispatch 2+ independent tasks | 4 | |
+| 37 | gitnexus-group-setup | new | — | wire multi-repo groups for cross-submodule `group_query`; parent root index excludes submodules (#9) | v0.3.0 | done |
 | — | gitnexus-exploring / -debugging / -impact-analysis / -refactoring / -cli / -pr-review | **reuse** | already installed (MCP skills) | **don't re-author** existing GitNexus skills + MCP tools (#6,#9) | — | |
 
 ---
@@ -154,12 +155,14 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 | H8 | dedupe-guard | new (node) | jscpd | PreToolUse Bash `git commit`: run jscpd on staged source → advisory clone warning; resolves `node_modules/.bin/jscpd`; fail-open; `LUNA_DEDUPE_GUARD=off` (#3) | post-4 | done |
 | H9 | gitnexus-submodule-advisory | new (node) | flynance submodule pattern | PreToolUse Read/Write/Edit: warn when submodule index missing/stale; `LUNA_GITNEXUS_SUBMODULE_ADVISORY=off` | post-4 | done |
 | H9b | gitnexus-submodule-sync | new (node) | extends post-commit | PostToolUse commit: async `gitnexus analyze` in submodules when pointer bumped or commit inside submodule | post-4 | done |
+| H10 | file-size-guard | new (node) | — | PostToolUse Write/Edit: advisory when `.md` or code file exceeds 300 (warn) / 500 (alert) lines; suggests `doc-simplify` or `dev-refactor`; `LUNA_FILE_SIZE_GUARD=off` (#4,#2) | v0.3.0 | done |
 
 ## Rules / scripts / config
 
 | # | Name | Action | Source pattern | Reason / pain | Phase | Your call |
 |---|------|--------|----------------|---------------|-------|-----------|
-| R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons**, security | new | ECC/rules/common | always-on guardrails; `lessons.md` carries pain #1 (#1,#5,#9) | 1–2 | |
+| R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons** | new | ECC/rules/common | always-on guardrails; `lessons.md` carries pain #1 (#1,#5,#9) | 1–2 | |
+| R7 | **knowledge-stack** | new | — | 4-layer read order (docs/README.md → GitNexus → source → external); [ref]+File index authoring; archive exclusion; doc + code size signals (#4,#9) | v0.3.0 | done |
 | S1 | build-plans-registry.mjs | new | — | `git log --grep '^Plan:'` → `docs/PLANS.md` (#7) | 2 | |
 | S2 | detect-modules.mjs | new | — | list submodules carrying their own `CLAUDE.md`/`AGENTS.md` → `doc-init` per-module scaffold targets | post-4 | done |
 | C1 | ~~LUNA_HOOK_PROFILE (minimal/standard/strict)~~ | **SUPERSEDED** | ECC/scripts/lib/hook-flags.js | profile gating dropped — each hook ships a granular `LUNA_*` opt-out instead (see C2 + the `AGENTS.md` config table) | — | |
@@ -173,6 +176,7 @@ For any project, `doc-init` creates (from templates, idempotent — never overwr
 
 ```
 AGENTS.md  (+ CLAUDE.md -> AGENTS.md symlink)
+docs/README.md            (project doc catalog — from templates/docs/README.md)
 docs/SYSTEM_DESIGN.md     docs/PROJECT_STRUCTURES.md
 docs/PLANS.md             docs/TODO.md             docs/workflows/WORKFLOW.md
 .claude/rules/lessons.md  (don't-repeat lessons; Claude auto-loads .claude/rules/)

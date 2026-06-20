@@ -12,6 +12,7 @@ the doc obligation — agent docs (PLANS/TODO) belong to `doc-update-agent`. Nev
 
 | Doc | Update when |
 |-----|-------------|
+| `docs/README.md` | new/moved/renamed doc; ownership boundary shift; new agent keywords needed |
 | `docs/SYSTEM_DESIGN.md` | architecture, mechanisms, data flow, or a new hook/agent changed |
 | `docs/PROJECT_STRUCTURES.md` | files/dirs added/moved/removed; the tree or a table is now wrong |
 | `docs/DATABASE_DESIGN.md` | schema, tables, columns, or migrations changed |
@@ -22,6 +23,9 @@ the doc obligation — agent docs (PLANS/TODO) belong to `doc-update-agent`. Nev
 
 1. Identify what changed this session (`git diff`, session edits).
 2. For each affected doc, update **only** the stale sections — minimal diff, match existing voice.
+   2.5. If a new module/path is documented inline in 2+ places → add `[ref]` to primary doc + File index row.
+        If a new top-level doc was created → add a catalog row to `docs/README.md`.
+        If an ownership boundary shifted → update the ownership table in `docs/README.md`.
 3. Update trees/tables/diagrams that the change invalidated (e.g. a new `skills/` dir, a Mermaid node).
 4. Verify cross-references still resolve (file paths, section anchors).
 5. Report which docs changed and which were checked-but-unchanged.
