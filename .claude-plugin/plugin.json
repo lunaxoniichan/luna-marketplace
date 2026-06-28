@@ -1,6 +1,6 @@
 {
   "name": "luna-agent-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Configurable phased workflow, project memory, plan↔commit tracing, GitNexus-aware vibe coding. v0.3.0: knowledge-stack rule, docs/README.md template, gitnexus-group-setup, file-size-guard hook.",
   "hooks": "./hooks/hooks.json"
 }

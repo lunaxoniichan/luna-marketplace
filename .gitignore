@@ -12,3 +12,4 @@ __pycache__/
 .jscpd-report/
 **/.cursor/
 .cursor/
+temp/

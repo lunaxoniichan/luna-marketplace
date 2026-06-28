@@ -23,7 +23,9 @@ lessons. This is the **agent** half of the doc obligation — architecture docs 
    `scripts/build-plans-registry.mjs` (rebuilds from `git log --grep '^Plan:'`) over hand-editing rows.
 2. **Lessons (pain #1):** when corrected, append one line to `.claude/rules/lessons.md` in the format
    `- AVOID <thing> — DO <alternative> (YYYY-MM-DD)`, mirror it to `.cursor/rules/lessons.mdc`, and
-   save a native `feedback` memory for cross-project reuse. (The `lessons-extractor` SessionEnd hook
+   optionally save a project-scoped `feedback` memory (prefix `[portable]` if the lesson applies
+   beyond this repo). **Never write `~/.claude/CLAUDE.md`** — user-level memory is the human's job.
+   (The `lessons-extractor` SessionEnd hook also captures these automatically — this skill is the
    also captures these automatically — this skill is the in-session, deliberate path.)
 3. Keep `Owner` accurate so the receiving tool reads a self-contained, current registry.
 

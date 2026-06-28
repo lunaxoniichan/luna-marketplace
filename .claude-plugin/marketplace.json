@@ -12,7 +12,7 @@
       "name": "luna-agent-kit",
       "source": "./",
       "description": "Configurable phased workflow, project memory, plan↔commit tracing, GitNexus-aware vibe coding",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "repository": "https://github.com/lunaxoniichan/luna-marketplace",
       "keywords": [
         "workflow",

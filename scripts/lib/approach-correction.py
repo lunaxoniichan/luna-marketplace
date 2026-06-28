@@ -5,10 +5,11 @@ Reads the current session's transcript JSONL, finds moments where the USER
 pushed back on Claude's chosen approach, and records them so future sessions
 don't repeat the mistake:
 
-  * high-confidence, this-project  -> append a one-line lesson to
+  * high-confidence (any scope)  -> append a one-line lesson to
         .claude/rules/lessons.md  (+ mirror .cursor/rules/lessons.mdc)
     and a native `feedback` memory under ~/.claude/projects/<slug>/memory/.
-  * high-confidence, all-projects  -> append to ~/.claude/CLAUDE.md.
+    Portable (`all_projects`) lessons are tagged `[portable]` in lessons.md only —
+    the kit never writes ~/.claude/CLAUDE.md or other user-level files.
   * medium-confidence              -> .pending-feedback.md (awaiting review).
   * low / unknown                  -> dropped.
 
@@ -36,7 +37,6 @@ MEMORY_DIR = Path(os.path.expanduser("~/.claude/projects")) / PROJECT_SLUG / "me
 PENDING_FILE = MEMORY_DIR / ".pending-feedback.md"
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 NO_REFLECT_MARKER = PROJECT_DIR / ".claude" / ".no-reflect"
-GLOBAL_CLAUDE_MD = Path(os.path.expanduser("~/.claude/CLAUDE.md"))
 LESSONS_MD = PROJECT_DIR / ".claude" / "rules" / "lessons.md"
 LESSONS_MDC = PROJECT_DIR / ".cursor" / "rules" / "lessons.mdc"
 LOG_FILE = PROJECT_DIR / ".claude" / ".luna-cache" / "lessons-extractor.log"
@@ -74,7 +74,8 @@ RULES:
   "instead", "prefer X over Y", "always do X", "never do Y", "use X not Y".
 - confidence=medium: mild preference without "don't/no/stop" ("maybe try X").
 - confidence=low: ambiguous. Usually drop.
-- applies_to=all_projects: user said "in all my projects"/"everywhere"/"always".
+- applies_to=all_projects: user said "in all my projects"/"everywhere"/"always" — tag as
+  [portable] in project lessons.md only; never write user-level ~/.claude/CLAUDE.md.
 - If there are NO real corrections, return {"corrections": []}.
 - Output ONLY the JSON object.
 
@@ -235,7 +236,9 @@ def append_lesson_line(correction: dict) -> None:
     pref = (correction.get("implied_preference") or "").strip().rstrip(".")
     if not did or not pref:
         return
-    line = f"- AVOID {did} — DO {pref} ({now_date()})\n"
+    portable = (correction.get("applies_to") or "") == "all_projects"
+    prefix = "[portable] " if portable else ""
+    line = f"- {prefix}AVOID {did} — DO {pref} ({now_date()})\n"
     key = keyword_set(did + " " + pref)
     for target in (LESSONS_MD, LESSONS_MDC):
         try:
@@ -320,27 +323,6 @@ def append_pending(correction: dict) -> None:
         log(f"append_pending failed: {exc}")
 
 
-def append_to_global_claude_md(correction: dict) -> None:
-    implied = correction.get("implied_preference") or ""
-    if not implied:
-        return
-    try:
-        existing = GLOBAL_CLAUDE_MD.read_text(encoding="utf-8") if GLOBAL_CLAUDE_MD.exists() else ""
-        section = "## Cross-project preferences (auto-captured)\n"
-        line = f"- {implied} _(extracted {now_date()} from session in {PROJECT_DIR.name})_\n"
-        if line.strip() in existing:
-            return
-        if section not in existing:
-            existing = (existing.rstrip("\n") + "\n\n" if existing else "") + section + "\n" + line
-        else:
-            existing = existing.replace(section, section + line, 1)
-        GLOBAL_CLAUDE_MD.parent.mkdir(parents=True, exist_ok=True)
-        GLOBAL_CLAUDE_MD.write_text(existing, encoding="utf-8")
-        log(f"wrote global pref: {implied[:60]}")
-    except Exception as exc:
-        log(f"append_to_global_claude_md failed: {exc}")
-
-
 def apply_corrections(corrections: Iterable[dict]) -> None:
     for c in corrections:
         if not isinstance(c, dict):
@@ -348,12 +330,14 @@ def apply_corrections(corrections: Iterable[dict]) -> None:
         confidence = (c.get("confidence") or "").lower()
         applies_to = c.get("applies_to", "this_project")
         if confidence == "high":
+            append_lesson_line(c)
+            if not find_similar(c.get("implied_preference", "")):
+                write_new_feedback(c)
             if applies_to == "all_projects":
-                append_to_global_claude_md(c)
-            else:
-                append_lesson_line(c)
-                if not find_similar(c.get("implied_preference", "")):
-                    write_new_feedback(c)
+                log(
+                    "portable lesson recorded in project rules only "
+                    "(kit does not write ~/.claude/CLAUDE.md)"
+                )
         elif confidence == "medium":
             append_pending(c)
 

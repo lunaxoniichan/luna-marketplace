@@ -93,7 +93,9 @@ Task state uses Claude Code's **native** `TaskCreate`/`TaskUpdate`/`TaskGet`/`Ta
 1. **`.claude/rules/lessons.md`** — Claude Code auto-loads everything in `.claude/rules/` at the same
    priority as `CLAUDE.md`, so a captured lesson is always in context. Cursor mirror:
    `.cursor/rules/lessons.mdc` (`alwaysApply`).
-2. **Native memory** — a `feedback` memory for cross-project lessons.
+2. **Native memory** — a project-scoped `feedback` file under `~/.claude/projects/<slug>/memory/`
+   (Claude Code's per-project memory; not user-level `~/.claude/CLAUDE.md`). Portable lessons get
+   `[portable]` in `lessons.md`; copy to your user `CLAUDE.md` manually if you want them everywhere.
 
 Capture is **active**, two ways: (a) in-session, the agent appends a one-line rule to `lessons.md` on
 correction (per `.claude/rules/core.md` / `doc-update-agent`); (b) at session end, the

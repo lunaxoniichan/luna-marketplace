@@ -1,7 +1,0 @@
-# Git
-
-1. **Conventional commits:** `<type>: <description>` — types: feat, fix, refactor, docs, test, chore, perf, ci.
-2. **`Plan:` trailer** during plan work: `Plan: docs/plans/<file>.md#phase-N` on every commit (see `dev-commit` skill).
-3. **No commit unless asked** — user must explicitly request commits.
-4. **Never** `--no-verify`, `--force` push to main, or `git reset --hard` without explicit user request.
-5. Recurring corrections → append a rule to `.claude/rules/lessons.md`. `block-no-verify` hard-blocks `--no-verify` and `core.hooksPath` bypass.

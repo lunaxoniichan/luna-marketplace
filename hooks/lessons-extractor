@@ -2,9 +2,10 @@
 # SessionEnd — extract approach corrections from this session's transcript and
 # record them so future sessions don't repeat the mistake (pain #1, active).
 #
-# Writes:
+# Writes (project scope only — never ~/.claude/CLAUDE.md):
 #   * one-line lesson → .claude/rules/lessons.md (+ .cursor/rules/lessons.mdc mirror)
-#   * native `feedback` memory (project-scoped, or ~/.claude/CLAUDE.md if portable)
+#   * native `feedback` memory under ~/.claude/projects/<slug>/memory/ (Claude Code project memory)
+#   * portable lessons tagged `[portable]` in lessons.md when user said "all projects"
 #
 # The extractor calls `claude -p` (Haiku) which can take 5-60s, so we DETACH it:
 # SessionEnd returns immediately, the work finishes in the background and logs to

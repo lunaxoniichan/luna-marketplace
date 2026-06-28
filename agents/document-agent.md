@@ -22,7 +22,8 @@ the don't-repeat lessons. The agent form of `doc-update-agent`. Paired with `doc
 2. **Backlog:** reflect real `TODO.md` status; each row links `Plan file` + `Plan phase`.
 3. **Lessons (pain #1):** when given a correction, append one line
    `- AVOID <thing> — DO <alternative> (YYYY-MM-DD)` to `.claude/rules/lessons.md`, mirror to
-   `.cursor/rules/lessons.mdc`, and (if cross-project) note a native `feedback` memory.
+   `.cursor/rules/lessons.mdc`, and optionally a project-scoped `feedback` memory (tag `[portable]`
+   if cross-repo). Never write `~/.claude/CLAUDE.md`.
 4. Keep `Owner` accurate for the Claude↔Cursor handoff.
 
 ## Do not
