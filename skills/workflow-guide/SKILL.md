@@ -9,10 +9,10 @@ If you were dispatched as a subagent to execute a specific task, skip this skill
 
 ## Instruction priority
 
-1. **User's explicit instructions** — highest
-2. **`.claude/rules/`** — always-on guardrails
-3. **Skills** (this kit) — override default behavior where they apply
-4. **`AGENTS.md`** and project docs — lowest of these four
+1. User explicit instructions (direct chat)
+2. Project rules (`RULES.md`, `AGENTS.md`, `.claude/rules/`)
+3. Plugin skills (`workflow-guide`, `vibe-rules`, `dev-*`, `review-*`, …)
+4. Default model behavior
 
 ## The rule
 

@@ -1,7 +1,11 @@
 # Luna Agent Kit — Tools Inventory
 
-Living component inventory. **Phases 1–4 complete + v0.3.0 knowledge stack** — 38 skills, 8 agents, 10 hooks, 7 rules, 2 scripts,
+Living component inventory. **Phases 1–4 complete + v0.4.1 vibe-rules dedup** — 39 skills, 8 agents, 10 hooks, 8 rules, 2 scripts,
 the `.cursor/` cross-tool layer. The **Your call** column tracks per-row decisions.
+
+> **Architecture layers** (provider / user bootstrap / plugin / project), file map, and end-to-end session
+> flow: [`docs/SYSTEM_DESIGN.md`](SYSTEM_DESIGN.md) §2–§5. This file owns the **component inventory** only.
+> Generic rules ownership: `docs/VIBE_RULES.md` + **`vibe-rules`** skill (on demand).
 
 > **Post-Phase-1 build (this pass), per locked session decisions:** Phase-2 hooks were **adapted from
 > flynance** (`gitnexus_freshness.sh`→`gitnexus-freshness`+`gitnexus-post-commit`, `secret_guard.sh`→
@@ -28,7 +32,7 @@ share their group's prefix where it applies.
 
 | Prefix | Category | Members |
 |--------|----------|---------|
-| `workflow-` | workflow/orchestration meta | workflow-guide, workflow-update |
+| `workflow-` | workflow/orchestration meta | workflow-guide, workflow-update, vibe-rules |
 | `dev-` | core dev lifecycle | dev-brainstorm, dev-research, dev-audit, dev-plan, dev-execute, dev-tdd, dev-debug, dev-verify, dev-commit |
 | `review-` | review tasks (skills + agents) | review-code, review-simplify, review-security, review-performance · agents: review-internal, review-external |
 | `doc-` | documentation | doc-init, doc-update-project, doc-update-agent, doc-simplify |
@@ -54,6 +58,7 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 |---|------|--------|--------|---------------|-------|-----------|
 | 1 | workflow-guide | adapt | superpowers/skills/using-superpowers | session bootstrap + Ultracode decision table; Mermaid not Graphviz (#5) | 1 | |
 | 2 | workflow-update | new | — | single edit path for markdown-only `WORKFLOW.md` (#5) | 1 | |
+| 2b | vibe-rules | new | — | generic engineering rules on demand; canonical `docs/VIBE_RULES.md` (#5,#6) | 4 | done |
 
 ### dev-* (core dev lifecycle)
 | # | Name | Action | Source | Reason / pain | Phase | Your call |
@@ -161,8 +166,9 @@ Fork roots: `superpowers/` = `fork/superpowers` · `ECC/` = `fork/ECC` · `cpo/`
 
 | # | Name | Action | Source pattern | Reason / pain | Phase | Your call |
 |---|------|--------|----------------|---------------|-------|-----------|
-| R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons** | new | ECC/rules/common | always-on guardrails; `lessons.md` carries pain #1 (#1,#5,#9) | 1–2 | |
-| R7 | **knowledge-stack** | new | — | 4-layer read order (docs/README.md → GitNexus → source → external); [ref]+File index authoring; archive exclusion; doc + code size signals (#4,#9) | v0.3.0 | done |
+| R1 | rules: core, workflow, docs, git, codebase-awareness, **lessons** | new | ECC/rules/common | always-on kit mechanics; generic principles → **`vibe-rules`** on demand (#1,#5,#9) | 1–2 | |
+| R7 | **knowledge-stack** | new | — | doc routing + catalog; L1–L4 read order → **`vibe-rules`** §0 (#4,#9) | v0.3.0 | done |
+| R8 | **vibe-coding** | new | — | always-on pointer → **`vibe-rules`** skill + `docs/VIBE_RULES.md` (#5,#6) | v0.4.1 | done |
 | S1 | build-plans-registry.mjs | new | — | `git log --grep '^Plan:'` → `docs/PLANS.md` (#7) | 2 | |
 | S2 | detect-modules.mjs | new | — | list submodules carrying their own `CLAUDE.md`/`AGENTS.md` → `doc-init` per-module scaffold targets | post-4 | done |
 | C1 | ~~LUNA_HOOK_PROFILE (minimal/standard/strict)~~ | **SUPERSEDED** | ECC/scripts/lib/hook-flags.js | profile gating dropped — each hook ships a granular `LUNA_*` opt-out instead (see C2 + the `AGENTS.md` config table) | — | |
@@ -203,8 +209,9 @@ durable registry from native tasks + `git log`'s `Plan:` trailers.
 - **Agents:** 7 (review-internal; review-external, execute, test, document-project, document-agent,
   dev-brainstorm). **Hooks:** 9 (session-start, block-no-verify, gitnexus-freshness,
   gitnexus-post-commit, doc-sync-reminder, url-safety-guard, secret-read-guard, lessons-extractor,
-  dedupe-guard — block-no-verify + session-start from Phase 1). **Rules:** 6 (incl. `lessons`).
-  **Scripts:** 2 (`build-plans-registry.mjs`, `detect-modules.mjs`) +
+  dedupe-guard — block-no-verify + session-start from Phase 1). **Rules:** 8 (`.claude/rules/*.md`:
+  core, workflow, docs, git, codebase-awareness, knowledge-stack, vibe-coding, lessons; `doc-init` also
+  writes `.cursor/rules/luna.mdc`). **Scripts:** 2 (`build-plans-registry.mjs`, `detect-modules.mjs`) +
   `scripts/lib/approach-correction.py`. **Cross-tool:** `.cursor/`
   mirrors (`hooks.json`, `rules/*.mdc`, `skills` symlink).
 - **Config env vars:** `LUNA_GITNEXUS_AUTOSYNC` / `_DEBOUNCE_MIN` / `_MAX_AUTOSYNC_FILES` ·

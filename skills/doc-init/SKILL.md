@@ -41,18 +41,19 @@ Created **on first use**, not pre-scaffolded: `docs/plans/<feature>.md` (by `dev
 | `hooks/hooks.json` (`PreToolUse`/`SessionStart`) | `.cursor/hooks.json` (`beforeShellExecution`/`sessionStart` → same scripts) |
 | `.claude/rules/*.md` (auto-loaded) | `.cursor/rules/*.mdc` (add `alwaysApply: true` frontmatter) |
 
-Create all `.cursor/rules/*.mdc` mirrors of the six `.claude/rules/*.md` files (add `alwaysApply: true`
+Create all `.cursor/rules/*.mdc` mirrors of the `.claude/rules/*.md` files (add `alwaysApply: true`
 frontmatter to each):
 
 | Source (Claude Code) | Mirror (Cursor) |
 |----------------------|-----------------|
 | `.claude/rules/core.md` | `.cursor/rules/core.mdc` |
+| `.claude/rules/vibe-coding.md` | `.cursor/rules/vibe-coding.mdc` |
 | `.claude/rules/workflow.md` | `.cursor/rules/workflow.mdc` |
 | `.claude/rules/docs.md` | `.cursor/rules/docs.mdc` |
 | `.claude/rules/git.md` | `.cursor/rules/git.mdc` |
 | `.claude/rules/codebase-awareness.md` | `.cursor/rules/codebase-awareness.mdc` |
-| `.claude/rules/lessons.md` | `.cursor/rules/lessons.mdc` |
 | `.claude/rules/knowledge-stack.md` | `.cursor/rules/knowledge-stack.mdc` |
+| `.claude/rules/lessons.md` | `.cursor/rules/lessons.mdc` |
 
 Also create `.cursor/rules/luna.mdc` (`alwaysApply: true`; read `docs/workflows/WORKFLOW.md`; skills are
 independent; follow `AGENTS.md`).
@@ -143,7 +144,7 @@ are per-repo, not inherited from the parent. See `dev-refactor` § Monorepo + su
 - **PLANS.md** — registry table (`Spec · Plan · Phase · Owner · Last commit · Status · Resume hint`)
 - **TODO.md** — backlog table with `Plan file` + `Plan phase` columns
 - **lessons.md** — header + format line, no entries
-- **WORKFLOW.md** — copy this repo's `docs/workflows/WORKFLOW.md`
+- **WORKFLOW.md** — copy this repo's `docs/workflows/WORKFLOW.md` (plugin default; customize via **`workflow-update`**)
 - **.jscpd.json** — baseline above
 
 ## Do not

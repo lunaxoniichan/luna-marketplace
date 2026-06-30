@@ -5,18 +5,19 @@ vibe-coding a consistent, gated workflow plus three pieces of project memory tha
 plugins don't provide: **corrections captured as native rules**, **plan↔commit traceability**, and **GitNexus
 index freshness**.
 
-> **Build status:** Phases 1–4 complete + v0.3.0 knowledge stack — 38 skills, 8 agents, 10 hooks, 7 rules,
+> **Build status:** Phases 1–4 complete + v0.4.1 vibe-rules dedup — 39 skills, 8 agents, 10 hooks, 8 rules
+> (`.claude/rules/*.md`; Cursor also gets `luna.mdc` via `doc-init`),
 > `build-plans-registry.mjs` + `detect-modules.mjs`, and the `.cursor/` cross-tool layer.
-> See `docs/TOOLS_LIST.md` for the full inventory.
+> See `docs/TOOLS_LIST.md` for the full inventory. Architecture layers: `docs/SYSTEM_DESIGN.md` §2–§4.
 
 `CLAUDE.md` is a symlink to this file.
 
 ## Instruction priority (highest wins)
 
-1. **The user** (this session's explicit instructions)
-2. **`.claude/rules/`** — always-on guardrails
-3. **Skills** invoked via the Skill tool
-4. **This file** and other docs
+1. **User explicit instructions** (direct chat)
+2. **Project rules** (`RULES.md`, `AGENTS.md`, `.claude/rules/`)
+3. **Plugin skills** (`workflow-guide`, `vibe-rules`, `dev-*`, `review-*`, …)
+4. **Default model behavior**
 
 ## Where the workflow lives
 
@@ -69,8 +70,8 @@ Playbook: `docs/specs/monorepo-refactor-playbook.md`.
 
 ## Skill naming
 
-Every skill carries a category prefix so similar skills group and are easy to recall: `workflow-`,
-**`dev-`** (core lifecycle: `dev-brainstorm`, `dev-plan`, `dev-execute`, `dev-tdd`, `dev-debug`,
+Every skill carries a category prefix so similar skills group and are easy to recall: `workflow-`
+(incl. **`vibe-rules`** — generic engineering rules on demand), **`dev-`** (core lifecycle: `dev-brainstorm`, `dev-plan`, `dev-execute`, `dev-tdd`, `dev-debug`,
 `dev-verify`, `dev-commit`, `dev-refactor`, `dev-research`, `dev-audit`), `review-`, `doc-`, `skill-`, `hook-`,
 `kwb-` (knowledge base, from ECC), `design-`. Full map in `docs/TOOLS_LIST.md`.
 
@@ -117,43 +118,9 @@ exactly what, from where, and why.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **luna-marketplace** (65558 symbols, 78932 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **luna-marketplace** (65558 symbols, 78932 relationships, 300 execution flows).
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+Before editing symbols: invoke **`gitnexus-impact-analysis`** skill. Full Always/Never rules: **`vibe-rules`** §7 · **`codebase-awareness`** rule.
 
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/luna-marketplace/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/luna-marketplace/clusters` | All functional areas |
-| `gitnexus://repo/luna-marketplace/processes` | All execution flows |
-| `gitnexus://repo/luna-marketplace/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
+Resources: `gitnexus://repo/luna-marketplace/{context,clusters,processes,process/{name}}`. If stale: `npx gitnexus analyze`.
 <!-- gitnexus:end -->

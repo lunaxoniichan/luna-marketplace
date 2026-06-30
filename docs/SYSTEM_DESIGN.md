@@ -1,167 +1,292 @@
 # Luna Agent Kit — System Design
 
-> Phases 1–4 built. Describes the architecture now realized in the repo. Source of truth for the
-> component inventory is `docs/TOOLS_LIST.md`.
+> Architecture for user-level plugin `luna-agent-kit@luna-marketplace`. Component inventory:
+> `docs/TOOLS_LIST.md`. Generic engineering rules (on demand): `docs/VIBE_RULES.md` via **`vibe-rules`**
+> skill.
 
 ## 1. Purpose
 
-A local-first Claude Code plugin for **daily, gated vibe coding**. It vendors the good parts of
-Superpowers (discipline skills), ECC (domain knowledge), and claude-plugins-official (canonical
-plugin/hook patterns), while adding the project-local state those plugins lack: plan↔commit traceability,
+Luna Agent Kit is a **user-level plugin** for gated vibe coding across **Claude Code** and **Cursor**.
+Project repos add overlays (skills, `RULES.md`, workflow menus); providers supply native runtimes.
+
+It vendors discipline from Superpowers, domain knowledge from ECC, and hook patterns from
+claude-plugins-official, while adding project-local state those plugins lack: plan↔commit traceability,
 GitNexus index freshness, and a consistent gated workflow.
 
-Design tenets:
+**Design tenets:**
 
-- **Skills are independent.** No skill references or chain-invokes another. Sequencing lives only in
+- **Skills are independent.** No skill chain-invokes another. Sequencing lives only in
   `docs/workflows/WORKFLOW.md`.
-- **Workflow suggests, the LLM decides.** Each phase lists `suggested_skills`; the LLM runs the
-  subset that fits the change.
+- **Workflow suggests, the LLM decides.** Each phase lists `suggested_skills`; the LLM picks the subset.
 - **Hooks remind and block — they never orchestrate.**
 - **Markdown-only workflow.** One `WORKFLOW.md` (frontmatter + inline Mermaid), no build scripts.
-- **Reuse over re-author.** GitNexus skills already exist; we add a freshness hook + a rule, not new
-  skills.
-- **Names group by category.** Every skill carries a category prefix: `workflow-`, **`dev-`** (core
-  lifecycle: dev-brainstorm/plan/execute/tdd/debug/verify/commit/research/audit), `review-`, `doc-`,
-  `skill-`, `hook-`, `kwb-`, `design-`. See `docs/TOOLS_LIST.md` for the full map.
+- **Generic vs project rules.** Principles in **`docs/VIBE_RULES.md`** (on demand via **`vibe-rules`**).
+  Stack-specific contracts in optional project **`RULES.md`** only.
+- **Layer 1 bootstrap is minimal.** `~/.claude/CLAUDE.md`, Cursor User Rules, and
+  `~/.cursor/rules/luna-bootstrap.mdc` point at the plugin — not a competing rulebook. **ECC retired**
+  at user level; do not reinstall `everything-claude-code` global rules/skills alongside Luna.
 
-## 2. Architecture
+## 2. Four layers + instruction priority
 
 ```mermaid
 flowchart TB
-    subgraph boot [Session bootstrap - session-start hook]
-        SS["session-start hook"]
-        SS -->|inject| ULW["workflow-guide skill"]
-        SS -->|check + async auto-reindex| GNX["GitNexus freshness"]
+    subgraph L0 [Layer 0 — Provider runtime]
+        CC["Claude Code\nSkill tool, hooks, rules, tasks, memory"]
+        CR["Cursor\nrules, skills symlink, hooks, plan mode"]
     end
-    subgraph cfg [Project config - one markdown file]
-        WF["docs/workflows/WORKFLOW.md\nfrontmatter phases + inline mermaid"]
+    subgraph L1 [Layer 1 — User bootstrap minimal]
+        UCL["~/.claude/CLAUDE.md\nplugin id + invoke workflow-guide"]
+        CUR["Cursor User Rules\nsame bootstrap"]
     end
-    subgraph skills [Independent skills - no skill-to-skill chaining]
-        direction LR
-        BR[dev-brainstorm] --> PL[dev-plan] --> EX[dev-execute]
-        EX --> TD[dev-tdd] --> DB[dev-debug] --> RC[review-code]
-        RC --> RS[review-simplify] --> CM[dev-commit]
+    subgraph L2 [Layer 2 — User plugin luna-agent-kit]
+        PLG["Plugin install\nskills/ hooks/ agents/ docs/"]
+        VR["vibe-rules + VIBE_RULES.md\non demand"]
+        WG["workflow-guide\nsession inject"]
+        RULES_P[".claude/rules to .cursor/rules/*.mdc\nscaffolded by doc-init"]
     end
-    subgraph guards [Hooks - remind + block, never orchestrate]
-        BNV["block-no-verify (PreToolUse Bash)"]
-        SRG["secret-read-guard (PreToolUse)"]
-        URG["url-safety-guard (PreToolUse WebFetch/Bash)"]
-        GF["gitnexus-freshness (PreToolUse) + gitnexus-post-commit (PostToolUse)"]
-        DS["doc-sync-reminder (Stop)"]
-        LEX["lessons-extractor (SessionEnd → lessons.md + memory)"]
+    subgraph L3 [Layer 3 — Project repo]
+        AG["AGENTS.md + CLAUDE.md symlink"]
+        RM["RULES.md optional"]
+        WF["docs/workflows/WORKFLOW.md overlay"]
+        PRJ[".claude/skills agents commands hooks\nproject add-ons"]
+        DOC["docs/ PLANS.md TODO.md plans/"]
     end
-    ULW --> WF
-    WF -->|"LLM reads phase menu, picks 0..N skills"| skills
-    skills -.-> guards
-    EX -->|writes| PLANS["docs/PLANS.md + TODO.md"]
-    CM -->|"Plan: trailer"| PLANS
-    LEX -->|"append correction"| LES[".claude/rules/lessons.md"]
+    CC --> UCL
+    CR --> CUR
+    UCL --> PLG
+    CUR --> PLG
+    PLG --> AG
+    RULES_P --> AG
+    AG --> RM
+    AG --> WF
+    WF --> PRJ
 ```
 
-> Built hooks (8): `session-start`, `block-no-verify`, `secret-read-guard`, `url-safety-guard`,
-> `gitnexus-freshness`, `gitnexus-post-commit`, `doc-sync-reminder`, `lessons-extractor`. Node hooks
-> (`block-no-verify`, `secret-read-guard`, `url-safety-guard`, `doc-sync-reminder`) export a testable
-> `run()`, sequenced by the `bash-guards` dispatcher so a Bash call spawns one Node process, not three.
-> All fail-open with `LUNA_*` opt-outs **except** the safety guards and `gitnexus-freshness`, which
-> returns `ask` rather than serve a stale graph (see §"GitNexus freshness" below).
+**Instruction priority (canonical):**
 
-## 3. Phased workflow
+1. User explicit instructions (direct chat)
+2. Project rules (`RULES.md`, `AGENTS.md`, `.claude/rules/` incl. `lessons.md`)
+3. Plugin skills (`workflow-guide`, `vibe-rules`, `dev-*`, `review-*`, …)
+4. Default model behavior
 
-`WORKFLOW.md` frontmatter defines an ordered set of phases with gates and a per-phase
-`suggested_skills` menu, plus `variants` (`trivial`, `fix`, `spike`) that skip phases so small tasks
-don't pay full ceremony. Default phases:
+Layer 1 bootstrap files **point at** Layer 2; they do not duplicate generic engineering rules.
 
-`dev-brainstorm → system-design → dev-plan → dev-execute` — with `user_approval` gates on
-system-design, plan, and each execute loop. Execute-phase menu suggests:
-`dev-tdd, dev-debug, review-code, review-simplify, doc-update-project, doc-update-agent, dev-commit`.
+## 3. File map — who owns what at init
 
-New projects bootstrap their docs with the **`doc-init`** skill (the minimum doc set; see
-`docs/TOOLS_LIST.md`). Reviews come in two forms: independent **`review-*` skills** (code, simplify,
-security, performance) for inline use, and two optional, user-invoked **agents** —
-**`review-internal`** (batches the review skills into one merged report at PR time, in an isolated
-subagent) and **`review-external`** (collects structured UI/UX feedback from real users).
+### Layer 0 — Provider (native; not authored by plugin)
 
-Task state uses Claude Code's **native** `TaskCreate`/`TaskUpdate`/`TaskGet`/`TaskList` (persisted in
-`~/.claude/tasks/`, broadcast across sessions) — we don't reinvent task tracking, so there is **no**
-`workflow-manager` agent. `PLANS.md`/`TODO.md` are the git-tracked, commit-linked layer that
-`doc-update-agent` distills from native tasks + `git log` `Plan:` trailers.
+| Claude Code | Cursor | Role |
+|-------------|--------|------|
+| `~/.claude/CLAUDE.md` | Settings → User Rules + `~/.cursor/rules/luna-bootstrap.mdc` | User bootstrap (~12 lines); ECC global rules **retired** |
+| `~/.claude/settings.json` | `settings.json` | Permissions, plugin enable |
+| `~/.claude/tasks/` | — | Native TaskCreate state (cross-session) |
+| `~/.claude/projects/<slug>/memory/` | — | Native feedback memory (SessionEnd) |
+| Skill tool | `.cursor/skills` symlink | Load `SKILL.md` on demand |
 
-## 4. The three enforcement mechanisms
+### Layer 2 — Plugin (authored in `luna-marketplace`, installed user-level)
 
-### A. Corrections → rules (pain #1)
-"Don't repeat my mistakes" rides the **native rules mechanism** — no custom log or denylist:
-1. **`.claude/rules/lessons.md`** — Claude Code auto-loads everything in `.claude/rules/` at the same
-   priority as `CLAUDE.md`, so a captured lesson is always in context. Cursor mirror:
-   `.cursor/rules/lessons.mdc` (`alwaysApply`).
-2. **Native memory** — a project-scoped `feedback` file under `~/.claude/projects/<slug>/memory/`
-   (Claude Code's per-project memory; not user-level `~/.claude/CLAUDE.md`). Portable lessons get
-   `[portable]` in `lessons.md`; copy to your user `CLAUDE.md` manually if you want them everywhere.
+| Path | Load | Role |
+|------|------|------|
+| `.claude-plugin/plugin.json` | install metadata | Plugin id, version |
+| `skills/*/SKILL.md` | on demand | `workflow-guide`, `vibe-rules`, `dev-*`, `review-*`, `doc-*`, `kwb-*`, `design-*`, `gitnexus-*` |
+| `agents/*.md` | user-invoked | `execute`, `review-internal`, `refactor-cleaner`, … |
+| `hooks/hooks.json` + `scripts/hooks/*.js` + `hooks/session-start` | event-driven | Guards, session inject, lessons extract |
+| `docs/VIBE_RULES.md` | on demand | Generic engineering principles |
+| `docs/workflows/WORKFLOW.md` | per task | Default phase template (`doc-init` copies) |
+| `docs/TOOLS_LIST.md` | reference | Component catalog |
+| `templates/` | `doc-init` | Scaffold sources |
 
-Capture is **active**, two ways: (a) in-session, the agent appends a one-line rule to `lessons.md` on
-correction (per `.claude/rules/core.md` / `doc-update-agent`); (b) at session end, the
-**`lessons-extractor`** hook runs a detached Haiku pass over the transcript, extracts explicit user
-pushback, and writes high-confidence corrections to `lessons.md` (+ `.cursor/rules/lessons.mdc`) and a
-native `feedback` memory — so a lesson isn't lost if the agent forgets to record it. Fail-open;
-opt-out `LUNA_LESSONS_AUTOEXTRACT=off` or a `.claude/.no-reflect` marker. `block-no-verify`,
-`secret-read-guard`, and `url-safety-guard` are the always-on hard safety guards.
+### Layer 2 → Layer 3 — Scaffolded per project by `doc-init`
 
-### B. Plan ↔ commit traceability (pain #7)
-- `dev-commit` skill writes `Plan: docs/plans/<file>.md#phase-N` on each commit.
-- `scripts/build-plans-registry.mjs` runs `git log --grep '^Plan:'` and regenerates `docs/PLANS.md`
-  (plan | phase | last commit | status | resume hint) — derived from git, so it can't drift.
-- `docs/TODO.md` rows always link to a plan file + phase, so any backlog item is one hop from resumable.
+| Claude | Cursor mirror | Load | Role |
+|--------|---------------|------|------|
+| `AGENTS.md` | reads `AGENTS.md` | always | Project router / kit entry |
+| `CLAUDE.md` → `AGENTS.md` | — | always (Claude) | Symlink |
+| `.claude/rules/core.md` | `.cursor/rules/core.mdc` | always | Kit mechanics |
+| `.claude/rules/workflow.md` | `.cursor/rules/workflow.mdc` | always | Read WORKFLOW.md |
+| `.claude/rules/docs.md` | `.cursor/rules/docs.mdc` | always | Doc class split |
+| `.claude/rules/git.md` | `.cursor/rules/git.mdc` | always | Commit conventions |
+| `.claude/rules/codebase-awareness.md` | `.cursor/rules/codebase-awareness.mdc` | always | GitNexus query-before-write (pointer to vibe-rules §7) |
+| `.claude/rules/knowledge-stack.md` | `.cursor/rules/knowledge-stack.mdc` | always | Doc routing; L1–L4 → `vibe-rules` §0 |
+| `.claude/rules/vibe-coding.md` | `.cursor/rules/vibe-coding.mdc` | always | Pointer → `vibe-rules` |
+| `.claude/rules/lessons.md` | `.cursor/rules/lessons.mdc` | always | Project corrections |
+| `.cursor/rules/luna.mdc` | — | always (Cursor) | Kit bootstrap |
+| `.cursor/skills` → plugin `skills/` | — | on demand | Same SKILL.md files |
+| `.cursor/hooks.json` | — | events | Same hook scripts (absolute paths at init) |
+| `docs/workflows/WORKFLOW.md` | same file | per task | Phase menu (project may overlay) |
+| `docs/PLANS.md`, `docs/TODO.md` | same | git-tracked | Plan registry + backlog |
+| `.jscpd.json` | same | commit hook | Dedupe guard |
 
-### C. GitNexus freshness (pain #9)
-Staleness = `git rev-parse HEAD` ≠ the repo's indexed `lastCommit` (from `.gitnexus/meta.json`).
-Adapted from flynance's proven hooks, split into two:
-- **`gitnexus-freshness`** (PreToolUse) — gates **GitNexus read ops** (`query`/`context`/`impact`/
-  `detect_changes`/`cypher`). If the index is stale it reindexes **synchronously** so the query reads a
-  fresh graph; on failure it returns `permissionDecision:"ask"` (**fail-closed** — never serve a stale
-  graph as fresh). Debounced (`LUNA_GITNEXUS_DEBOUNCE_MIN`, 10m) and **size-capped**
-  (`LUNA_GITNEXUS_MAX_AUTOSYNC_FILES`, 2000 → large repos warn instead of churn).
-- **`gitnexus-post-commit`** (PostToolUse on `git commit`/`merge`) — kicks off the reindex
-  **async / detached** so the commit never blocks; an in-flight lock keeps the two hooks from racing.
-- Both honor **opt-out** `LUNA_GITNEXUS_AUTOSYNC=off` and pass through when no `.gitnexus/` index exists.
+### Layer 3 — Project-only (example: flynance-main; not in plugin)
 
-Paired with the `codebase-awareness` rule: query GitNexus for an existing implementation before
-writing new code (kills "agent recreates code that already exists").
+| Path | Role |
+|------|------|
+| `RULES.md` | Stack invariants + one-line delegation to plugin |
+| `.claude/rules/routing.md` | Pointers only |
+| `.claude/skills/<project>-*` | Domain skills (e.g. `flynance-implementation-guide`) |
+| `.claude/agents/<project>-*` | Domain subagents |
+| `.claude/commands/<project>-vibe*` | Walk-away harness (state machine) |
+| `.claude/harness.md` | PR / persona gates |
+| Project hooks | Domain safety (`migration_guard`, `risk_gate`, …) |
 
-## 5. Knowledge stack
+Project **`WORKFLOW.md`** syncs generic phases from the plugin default, then adds project skill names
+to `suggested_skills` via **`workflow-update`**. Harness commands stay project-local.
 
-Agents resolve questions in this order — one question, one canonical layer:
+## 4. End-to-end session flow
 
-| Layer | Source | Answers |
-|-------|--------|---------|
-| **L1 Routing** | `docs/README.md` → task doc | What to read, what owns what |
-| **L2 Structure** | GitNexus MCP (`query`, `context`, `impact`) | Callers, callees, execution flows |
-| **L3 Invariants** | `lessons.md` · schemas · fidelity tests | Must-not-break rules |
-| **L4 External** | Context7 / library docs MCP | Third-party API semantics |
+Claude Code primary path; Cursor is analogous (no SessionStart/SessionEnd hooks — bootstrap via
+always-on rules + first message).
 
-`docs/README.md` is scaffolded by `doc-init` (from `templates/docs/README.md`). It holds a catalog
-table, ownership rules, and read order — never implementation details or call graphs.
-Rule: `.claude/rules/knowledge-stack.md` (mirrored to `.cursor/rules/knowledge-stack.mdc`).
-Golden reference: `flynance-main/data-pipeline/docs/README.md`.
+```mermaid
+sequenceDiagram
+    participant User
+    participant Provider as Claude Code or Cursor
+    participant SS as session-start hook
+    participant WG as workflow-guide
+    participant WF as WORKFLOW.md
+    participant SK as Phase skills
+    participant VR as vibe-rules
+    participant HK as Hooks
+    participant Git as git and PLANS.md
+    participant LEX as lessons-extractor
 
-## 6. Relationship to Claude native workflows (Ultraplan)
+    User->>Provider: New session or task
+    Provider->>SS: SessionStart
+    SS->>Provider: Inject workflow-guide summary
+    SS->>HK: GitNexus freshness check
+    Provider->>WG: Skill invoke on non-trivial work
+    WG->>WF: Read current phase and variants
+    WF->>SK: Pick 0..N from suggested_skills
+    Note over SK,VR: dev-execute may invoke vibe-rules on demand
+    SK->>HK: PreToolUse guards on tool calls
+    SK->>Git: dev-commit with Plan trailer
+    HK->>Git: gitnexus-post-commit async reindex
+    User->>Provider: End session
+    Provider->>LEX: SessionEnd
+    LEX->>Git: Append lessons.md and feedback memory
+    Provider->>HK: Stop doc-sync-reminder
+```
 
-Complementary, not competing. Use native `/workflows` for 100+-file sweeps / mass migrations / 16+
-parallel agents. Use Luna Agent Kit for day-to-day gated feature work with local hooks, user
-approval between phases, and the memory/traceability mechanisms above. Documented as a decision table
-in `workflow-guide` and `.claude/rules/workflow.md`.
+**Phase loop (task time):**
 
-## 6. Cross-tool (Claude Code + Cursor)
+```mermaid
+flowchart LR
+    subgraph phases [WORKFLOW.md phases]
+        BS[dev-brainstorm]
+        SD[system-design]
+        PL[dev-plan]
+        EX[dev-execute]
+    end
+    BS --> SD --> PL --> EX
+    EX --> EX
+    subgraph onDemand [On-demand skills pick 0..N per task]
+        VR[vibe-rules]
+        DE[dev-execute]
+        TD[dev-tdd]
+        DB[dev-debug]
+        VF[dev-verify]
+        RC[review-code]
+        CM[dev-commit]
+        DU[doc-update-project]
+    end
+    EX --> onDemand
+```
 
-The repo is the source of truth and the handoff bus; both tools read the same in-repo markdown + git,
-so neither depends on the other's private state.
+**Memory and traceability (session → durable):**
+
+| Mechanism | When | Writes |
+|-----------|------|--------|
+| Native tasks | In session | `~/.claude/tasks/` |
+| `Plan:` trailer | Commit | `git log` → `docs/PLANS.md` via registry script |
+| `lessons.md` | Correction in session | `.claude/rules/lessons.md` + `.cursor/rules/lessons.mdc` |
+| `lessons-extractor` | SessionEnd | Same + `~/.claude/projects/.../memory/feedback_*` |
+| `doc-update-agent` | After plan work | `PLANS.md`, `TODO.md` |
+| GitNexus index | Post-commit / PreToolUse | `.gitnexus/` |
+
+## 5. Hooks map (plugin)
+
+| Event | Hook | Effect |
+|-------|------|--------|
+| SessionStart | `session-start` | Inject `workflow-guide`; freshness advisory |
+| PreToolUse Bash | `bash-guards`, `gitnexus-freshness`, `dedupe-guard` | Safety + stale graph gate + clone warn on commit |
+| PreToolUse Read/Write/Edit | `secret-read-guard`, `gitnexus-submodule-advisory` | Block secrets; submodule index warn |
+| PreToolUse WebFetch | `url-safety-guard` | HTTPS + allowlist |
+| PostToolUse Bash | `gitnexus-post-commit` | Async reindex after commit |
+| PostToolUse Write/Edit | `file-size-guard` | Advisory on large files |
+| Stop | `doc-sync-reminder` | Nudge doc updates |
+| SessionEnd | `lessons-extractor` | Haiku pass → lessons + memory |
+
+**Cursor mapping:** `.cursor/hooks.json` — `beforeShellExecution`, `beforeReadFile`, `afterFileWrite`,
+`stop`. Node hooks export testable `run()`; Bash guards sequenced via `bash-guards.js`.
+
+All hooks fail-open with `LUNA_*` opt-outs **except** hard safety guards and `gitnexus-freshness`
+(returns `ask` rather than serve a stale graph).
+
+## 6. Phased workflow
+
+`WORKFLOW.md` frontmatter defines phases, gates, `suggested_skills`, and variants (`trivial`, `fix`,
+`spike`, `refactor`). Default phases:
+
+`dev-brainstorm → system-design → dev-plan → dev-execute`
+
+Execute-phase menu includes `vibe-rules`, `dev-execute`, `dev-tdd`, `dev-debug`, `dev-verify`,
+`dev-refactor`, `review-*`, `doc-update-*`, `dev-commit`. Change workflow only via **`workflow-update`**.
+
+Task state: Claude Code native `TaskCreate`/`TaskUpdate`/… (`~/.claude/tasks/`). Git-tracked layer:
+`PLANS.md`/`TODO.md` + `Plan:` commit trailers.
+
+## 7. Three enforcement mechanisms
+
+### A. Corrections → rules
+
+1. **`.claude/rules/lessons.md`** — auto-loaded; Cursor mirror `.cursor/rules/lessons.mdc`.
+2. **Native memory** — `~/.claude/projects/<slug>/memory/` (not user-level `CLAUDE.md`).
+
+Capture: in-session append on correction; **`lessons-extractor`** at SessionEnd (opt-out
+`LUNA_LESSONS_AUTOEXTRACT=off`).
+
+### B. Plan ↔ commit traceability
+
+- `dev-commit` → `Plan: docs/plans/<file>.md#phase-N` trailer.
+- `scripts/build-plans-registry.mjs` → `docs/PLANS.md` from `git log`.
+
+### C. GitNexus freshness
+
+- **`gitnexus-freshness`** (PreToolUse) — sync reindex when stale; fail-closed on read ops.
+- **`gitnexus-post-commit`** — async reindex after commit.
+
+Full Always/Never rules: **`vibe-rules`** §7. Query-before-write: **`codebase-awareness`** rule.
+
+## 8. Knowledge stack
+
+Read-order table (L1–L4): **`vibe-rules`** §0 or `docs/VIBE_RULES.md` §0.
+
+Doc authoring and catalog rules: `.claude/rules/knowledge-stack.md` → `.cursor/rules/knowledge-stack.mdc`.
+`docs/README.md` scaffolded by `doc-init`.
+
+## 9. Luna vs native `/workflows` + cross-tool handoff
+
+Complementary, not competing. Native `/workflows` for 100+-file sweeps; Luna for daily gated work with
+local hooks and memory. See `workflow-guide` and `.claude/rules/workflow.md`.
 
 | Component | Claude Code | Cursor |
 |-----------|-------------|--------|
-| Durable state | `docs/`, git, `PLANS.md`, `TODO.md` | same (read natively) |
-| Skills (`SKILL.md`) | plugin `skills/` | `.cursor/skills` → symlink to `skills/` |
-| Hooks | `hooks/hooks.json` (SessionStart/PreToolUse/PostToolUse/Stop/SessionEnd) | `.cursor/hooks.json` (`beforeShellExecution`, `beforeReadFile`, `stop`) |
-| Rules | `.claude/rules/*.md` (auto-loaded) | `.cursor/rules/*.mdc` (`alwaysApply`) |
-| Plan authoring | native plan mode | native plan mode |
+| Durable state | `docs/`, git, `PLANS.md`, `TODO.md` | same |
+| Skills | plugin `skills/` | `.cursor/skills` symlink |
+| Hooks | `hooks/hooks.json` | `.cursor/hooks.json` |
+| Rules | `.claude/rules/*.md` | `.cursor/rules/*.mdc` |
 
-**Loop:** plan in one tool → `dev-plan` saves a self-contained plan to `docs/plans/` + a `PLANS.md`
-row (set `Owner`) → the other tool implements + commits with the `Plan:` trailer → the first tool
-reviews via `git log --grep Plan:`.
+**Handoff loop:** plan in one tool → `dev-plan` → other tool implements with `Plan:` trailer → review via
+`git log`.
+
+## File index
+
+| Path | Role |
+|------|------|
+| [docs/TOOLS_LIST.md](TOOLS_LIST.md) | Component inventory |
+| [docs/VIBE_RULES.md](VIBE_RULES.md) | Generic engineering rules (on demand) |
+| [docs/workflows/WORKFLOW.md](workflows/WORKFLOW.md) | Default phase template |
+| [AGENTS.md](../AGENTS.md) | Kit entry for this repo |
+| [skills/vibe-rules/SKILL.md](../skills/vibe-rules/SKILL.md) | On-demand rules index |
+| [skills/workflow-guide/SKILL.md](../skills/workflow-guide/SKILL.md) | Session orchestration |
+| [skills/doc-init/SKILL.md](../skills/doc-init/SKILL.md) | Project scaffold |

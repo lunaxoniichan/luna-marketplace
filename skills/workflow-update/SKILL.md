@@ -12,7 +12,10 @@ description: Use when changing project workflow phases, gates, suggested_skills,
 1. **Markdown-only** — YAML frontmatter + body + inline Mermaid. No `.mjs` build scripts.
 2. **One file** — all workflow changes in `docs/workflows/WORKFLOW.md`.
 3. **Skills stay independent** — `suggested_skills` is a menu, not a chain. Never add "then invoke X" between skills.
-4. **Preserve variants** — keep `trivial`, `fix`, `spike` unless the user explicitly removes them.
+4. **Preserve variants** — keep `trivial`, `fix`, `spike`, `refactor` unless the user explicitly removes them.
+5. **Project overlays** — extend `suggested_skills` with project-local skills (e.g. `.claude/skills/flynance-*`).
+   Sync generic phases/variants from the plugin default `WORKFLOW.md` first; do not fork generic phases into
+   harness commands (`/flynance-vibe` stays project-local).
 
 ## Frontmatter schema
 

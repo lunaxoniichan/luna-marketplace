@@ -16,7 +16,7 @@ variants:
 phases:
   - id: dev-brainstorm
     gate: user_approval
-    suggested_skills: [dev-brainstorm, dev-research, dev-audit]
+    suggested_skills: [dev-brainstorm, dev-research, dev-audit, vibe-rules]
     description: Design dialogue before code. Output goes to docs/specs/.
   - id: system-design
     gate: user_approval
@@ -24,11 +24,12 @@ phases:
     description: Align docs/SYSTEM_DESIGN.md with the approved spec; design tokens/schema/UI.
   - id: dev-plan
     gate: user_approval
-    suggested_skills: [dev-plan, dev-audit, dev-parallel]
+    suggested_skills: [dev-plan, dev-audit, dev-parallel, vibe-rules]
     description: Implementation plan in docs/plans/. Defer scope to docs/TODO.md.
   - id: dev-execute
     gate: per_task
     suggested_skills:
+      - vibe-rules
       - dev-execute
       - dev-tdd
       - dev-debug
@@ -60,6 +61,7 @@ flowchart LR
     PL --> EX[dev-execute]
     EX --> EX
     subgraph execute_menu [dev-execute menu — pick 0..N]
+      VR[vibe-rules]
       TD[dev-tdd]
       DB[dev-debug]
       VF[dev-verify]
