@@ -30,6 +30,14 @@ execSync('node --experimental-strip-types tests/studio/edge-semantics.test.mjs',
 });
 console.log('  ok edge-semantics');
 
+execSync('node tests/studio/smoke-overview.test.mjs', {
+  cwd: ROOT,
+  encoding: 'utf8',
+  env,
+  stdio: 'inherit',
+});
+console.log('  ok smoke-overview');
+
 execSync('npm --prefix studio run typecheck', {
   cwd: ROOT,
   encoding: 'utf8',
@@ -38,4 +46,4 @@ execSync('npm --prefix studio run typecheck', {
 });
 console.log('  ok typecheck');
 
-console.log('\n3 passed, 0 failed');
+console.log('\n4 passed, 0 failed');

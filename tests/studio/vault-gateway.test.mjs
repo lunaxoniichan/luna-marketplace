@@ -12,6 +12,10 @@ import {
   vaultSyncPreview,
   vaultSyncApply,
   assertVaultId,
+  assertBodySize,
+  assertCtxAllowed,
+  normalizeError,
+  MAX_BODY_BYTES,
 } from '../../scripts/lib/vault-gateway.mjs';
 import { sha256 } from '../../scripts/lib/vault-crud.mjs';
 
@@ -37,6 +41,8 @@ const ctx = {
   pluginRoot: root,
   registry: { version: 1, projects: [{ id: 'gw-proj', path: root }] },
 };
+
+process.env.LUNA_VAULT_GATEWAY_TEST = '1';
 
 function test(name, fn) {
   try {
@@ -202,6 +208,24 @@ test('vaultSyncApply happy path after conflict cleared', () => {
     readFileSync(join(root, '.claude/rules/gateway-rule.md'), 'utf8'),
     /luna:generated/,
   );
+});
+
+test('ctx env-gate rejects overrides without LUNA_VAULT_GATEWAY_TEST', () => {
+  const prev = process.env.LUNA_VAULT_GATEWAY_TEST;
+  delete process.env.LUNA_VAULT_GATEWAY_TEST;
+  assert.equal(assertCtxAllowed({ pluginRoot: root })?.code, 'CTX_FORBIDDEN');
+  process.env.LUNA_VAULT_GATEWAY_TEST = prev || '1';
+});
+
+test('body size cap', () => {
+  assert.equal(assertBodySize('x'.repeat(100)), null);
+  assert.equal(assertBodySize('x'.repeat(MAX_BODY_BYTES + 1))?.code, 'BODY_TOO_LARGE');
+});
+
+test('error normalization redacts absolute paths', () => {
+  const e = normalizeError(new Error('failed at /home/l/secret/repo/file.md'));
+  assert.ok(!e.message.includes('/home/l'));
+  assert.match(e.message, /<path>/);
 });
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');

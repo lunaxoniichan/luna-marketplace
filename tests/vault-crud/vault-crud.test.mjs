@@ -332,6 +332,21 @@ test('reject create into generated', () => {
   assert.equal(r.ok, false);
 });
 
+test('concurrent git lock → VAULT_BUSY (not GIT_COMMIT)', () => {
+  const lock = join(root, '.git', 'index.lock');
+  writeFileSync(lock, '');
+  try {
+    const r = createFile({ vault, relPath: 'memory/busy.md', body: 'x', frontmatter: fm() });
+    assert.equal(r.ok, false);
+    assert.equal(r.error.code, 'VAULT_BUSY');
+  } finally {
+    rmSync(lock, { force: true });
+  }
+  // guard released → next write succeeds
+  const ok = createFile({ vault, relPath: 'memory/after-busy.md', body: 'y', frontmatter: fm() });
+  assert.equal(ok.ok, true);
+});
+
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 try {
   rmSync(root, { recursive: true, force: true });

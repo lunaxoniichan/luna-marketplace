@@ -4,14 +4,23 @@
  */
 export {
   assertVaultId,
+  assertBodySize,
+  assertCtxAllowed,
+  normalizeError,
+  MAX_BODY_BYTES,
   summarizeSyncResult,
   planTokenFromSummary,
   vaultCreate,
   vaultUpdate,
   vaultDelete,
   vaultMerge,
+  vaultRead,
   vaultReadSha,
+  vaultList,
   vaultWikilinks,
   vaultSyncPreview,
+  vaultSyncPreviewMany,
   vaultSyncApply,
+  vaultSyncApplyMany,
+  listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

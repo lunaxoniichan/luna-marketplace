@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-18T14:56:04.968Z",
+  "generated_at": "2026-07-18T15:14:50.316Z",
   "root": "luna-marketplace",
   "counts": {
     "docs": 33,
@@ -39,7 +39,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": null,
-      "lines": 14,
+      "lines": 13,
       "has_frontmatter": false
     },
     {
@@ -78,7 +78,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": null,
-      "lines": 89,
+      "lines": 90,
       "has_frontmatter": false
     },
     {
@@ -292,7 +292,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": "2026-07-18",
-      "lines": 52,
+      "lines": 50,
       "has_frontmatter": true
     },
     {
@@ -502,7 +502,7 @@
       "scope": "project",
       "type": "spec",
       "lifecycle": "official",
-      "status": "draft",
+      "status": "active",
       "keywords": [
         "studio",
         "server-actions",
@@ -517,8 +517,8 @@
       "wikilinks": [],
       "supersedes": null,
       "superseded_by": null,
-      "updated": "2026-07-18",
-      "lines": 152,
+      "updated": "2026-07-19",
+      "lines": 155,
       "has_frontmatter": true
     },
     {

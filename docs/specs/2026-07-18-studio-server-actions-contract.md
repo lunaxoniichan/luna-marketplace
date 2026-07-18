@@ -3,18 +3,17 @@ title: Studio Server Actions — vault CRUD + sync boundary
 scope: project
 type: spec
 lifecycle: official
-status: draft
+status: active
 keywords: [studio, server-actions, vault, sync, authorization]
 related:
   - docs/specs/2026-07-18-vault-crud-contract.md
   - docs/specs/2026-07-18-sync-agent-views-contract.md
-updated: 2026-07-18
+updated: 2026-07-19
 ---
 
 # Contract — Studio Server Action ↔ lib boundary
 
-> **Review gate:** agree calling convention before thick React forms / modals.
-> Status: DRAFT for staff review.
+> **Status:** ACTIVE (staff signed off 2026-07-18).
 > Depends on: vault-crud (active) + sync-agent-views (active).
 
 ## 1. Purpose
@@ -53,7 +52,11 @@ Before calling the lib:
 - `relPath`: non-empty, no `..`, no leading `/`, must match vault-crud allow prefixes (fail early with same codes)
 - `frontmatter`: plain object; enums re-validated by lib after stamp
 - `confirmSha` / `confirmShas`: hex sha256 (64 chars) when required
+- `body`: max **512 KiB** (`BODY_TOO_LARGE`)
 - Reject unknown top-level keys on action payloads (`strictKeys`) so future clobber knobs cannot sneak in
+- **ctx env-gate:** `pluginRoot` / `registry` overrides only when `LUNA_VAULT_GATEWAY_TEST=1` (`CTX_FORBIDDEN` otherwise)
+- **Per-vault mutex:** concurrent mutations on the same `vaultId` → `VAULT_BUSY`
+- **Error normalization:** client messages redact absolute paths; truncated; no raw git stderr dumps
 
 ## 4. CRUD actions
 

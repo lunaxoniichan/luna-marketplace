@@ -31,12 +31,10 @@ Next.js 16 host-first UI :3900; kit hierarchy + submodule-overlap edges only (no
 Docker optional/plugin-only. Fixtures opt-in via `LUNA_STUDIO_FIXTURES=1` / `npm run studio:fixtures`.
 
 ### phase-2 — Editing + agent-view generation
-**Status:** Tasks 1–2 signed off; Task 3 Server Action boundary drafted (awaiting sign-off). UI chrome next.
-**Fleet:** Option A decided — `docs/decisions/2026-07-18-fleet-rules-canonical.md` (implement `--all` before UI hardens).
-- Task 1: `docs/specs/2026-07-18-sync-agent-views-contract.md` (active)
-- Task 2: `docs/specs/2026-07-18-vault-crud-contract.md` (active)
-- Task 3: `docs/specs/2026-07-18-studio-server-actions-contract.md` (draft)
-- Gateway: `scripts/lib/vault-gateway.mjs` · `npm run test:vault-gateway`
+**Status:** Tasks 1–3 backend + Task 3 UI chrome landed (T6 folded; sync UI fleet-shaped for T5).
+- Task 1: sync contract (active) · Task 2: vault-crud (active)
+- Task 3: server-actions contract (**active**) + VaultWorkspace / SyncPreviewPanel
+- Open: T5 fleet `sync --all` source rewrite · Task 4–5
 
 ### phase-3 — Graph memory backend
 FalkorDB + Graphiti + local-ai; fail-open; `LUNA_MEMORY_KG`.

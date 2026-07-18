@@ -3,10 +3,11 @@
  * Contract: docs/specs/2026-07-18-studio-server-actions-contract.md
  *
  * Client sends vaultId only. Authorized vault stays in server scope.
+ * T6: per-vault mutex, error normalization, body-size cap, ctx env-gate.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import {
   resolveVaultRoot,
   createFile,
@@ -16,11 +17,15 @@ import {
   assertAllowedPath,
   fileContentSha,
   listWikilinkTargets,
+  ALLOWED_PREFIXES,
 } from './vault-crud.mjs';
+import { parseFrontmatter } from './frontmatter.mjs';
 import { syncAgentViews } from './agent-views.mjs';
+import { loadRegistry } from './luna-registry.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
+export const MAX_BODY_BYTES = 512 * 1024;
 
 const CRUD_KEYS = new Set([
   'vaultId',
@@ -37,12 +42,42 @@ const CRUD_KEYS = new Set([
 ]);
 
 const SYNC_KEYS = new Set(['vaultId', 'planToken']);
+const SYNC_MANY_KEYS = new Set(['vaultIds']);
+const SYNC_APPLY_MANY_KEYS = new Set(['targets']); // [{ vaultId, planToken }]
+
+/** @type {Set<string>} */
+const vaultLocks = new Set();
 
 function pluginRoot() {
   if (process.env.LUNA_PLUGIN_ROOT) return resolve(process.env.LUNA_PLUGIN_ROOT);
   const cwd = process.cwd();
   if (/[/\\]studio$/.test(cwd)) return resolve(cwd, '..');
   return resolve(cwd);
+}
+
+/**
+ * Test/hermetic overrides (`pluginRoot`, `registry`) require LUNA_VAULT_GATEWAY_TEST=1.
+ * Production Server Actions must never pass ctx.
+ */
+export function assertCtxAllowed(ctx) {
+  if (!ctx || typeof ctx !== 'object') return null;
+  const keys = Object.keys(ctx).filter((k) => ctx[k] !== undefined);
+  if (!keys.length) return null;
+  if (process.env.LUNA_VAULT_GATEWAY_TEST === '1') return null;
+  return {
+    code: 'CTX_FORBIDDEN',
+    message: 'ctx overrides require LUNA_VAULT_GATEWAY_TEST=1',
+  };
+}
+
+export function normalizeError(e, fallbackCode = 'ERROR') {
+  const code = e?.code || fallbackCode;
+  let message = String(e?.stderr || e?.message || e || 'error');
+  message = message.replace(/\/(?:home|Users|private|tmp|var|opt)\/[^\s"'`]+/gi, '<path>');
+  message = message.replace(/[A-Za-z]:\\[^\s"'`]+/g, '<path>');
+  message = message.replace(/\n+/g, ' ').trim();
+  if (message.length > 400) message = `${message.slice(0, 400)}…`;
+  return { code, message };
 }
 
 function rejectUnknownKeys(input, allowed) {
@@ -62,6 +97,40 @@ export function assertVaultId(vaultId) {
     return { code: 'VAULT_ID', message: 'vaultId shape invalid' };
   }
   return null;
+}
+
+export function assertBodySize(body) {
+  if (body == null) return null;
+  const n = Buffer.byteLength(String(body), 'utf8');
+  if (n > MAX_BODY_BYTES) {
+    return {
+      code: 'BODY_TOO_LARGE',
+      message: `body exceeds ${MAX_BODY_BYTES} bytes`,
+      bytes: n,
+    };
+  }
+  return null;
+}
+
+/**
+ * In-process fast-path guard against re-entrant/interleaved mutations of one
+ * vault. NOTE: mutators are synchronous, so within a single process the event
+ * loop already serializes them; the authoritative cross-process guard is git's
+ * own `.git/index.lock`, surfaced as `VAULT_BUSY` by commitPaths (vault-crud).
+ */
+function withVaultLock(vaultId, fn) {
+  if (vaultLocks.has(vaultId)) {
+    return {
+      ok: false,
+      error: { code: 'VAULT_BUSY', message: 'Another mutation is in progress for this vault' },
+    };
+  }
+  vaultLocks.add(vaultId);
+  try {
+    return fn();
+  } finally {
+    vaultLocks.delete(vaultId);
+  }
 }
 
 function openVault(vaultId, opts = {}) {
@@ -121,7 +190,14 @@ function toSyncPreview(result) {
 
 function stripMutatorResult(result) {
   if (!result.ok) {
-    return { ok: false, error: result.error || { code: 'ERROR', message: 'failed' } };
+    const err = result.error || { code: 'ERROR', message: 'failed' };
+    return {
+      ok: false,
+      error: normalizeError(
+        { code: err.code, message: err.message || JSON.stringify(err) },
+        err.code || 'ERROR',
+      ),
+    };
   }
   const out = {
     ok: true,
@@ -137,56 +213,70 @@ function stripMutatorResult(result) {
   return out;
 }
 
+function gate(input, allowed, ctx) {
+  const ctxErr = assertCtxAllowed(ctx);
+  if (ctxErr) return { ok: false, error: ctxErr };
+  const unk = rejectUnknownKeys(input, allowed);
+  if (unk) return { ok: false, error: unk };
+  return null;
+}
+
 /**
  * @param {Record<string, unknown>} input
  * @param {{ pluginRoot?: string, registry?: object }} [ctx] — test overrides only
  */
 export function vaultCreate(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, CRUD_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, CRUD_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId) || assertBodySize(input.body);
   if (bad) return { ok: false, error: bad };
-  try {
-    const vault = openVault(String(input.vaultId), ctx);
-    return stripMutatorResult(
-      createFile({
-        vault,
-        relPath: input.relPath,
-        body: input.body,
-        frontmatter: input.frontmatter,
-        planTrailer: input.planTrailer,
-      }),
-    );
-  } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
-  }
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      return stripMutatorResult(
+        createFile({
+          vault,
+          relPath: input.relPath,
+          body: input.body,
+          frontmatter: input.frontmatter,
+          planTrailer: input.planTrailer,
+        }),
+      );
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
+    }
+  });
 }
 
 export function vaultUpdate(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, CRUD_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, CRUD_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId) || assertBodySize(input.body);
   if (bad) return { ok: false, error: bad };
-  try {
-    const vault = openVault(String(input.vaultId), ctx);
-    return stripMutatorResult(
-      updateFile({
-        vault,
-        relPath: input.relPath,
-        body: input.body,
-        frontmatter: input.frontmatter,
-        planTrailer: input.planTrailer,
-      }),
-    );
-  } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
-  }
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      return stripMutatorResult(
+        updateFile({
+          vault,
+          relPath: input.relPath,
+          body: input.body,
+          frontmatter: input.frontmatter,
+          planTrailer: input.planTrailer,
+        }),
+      );
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
+    }
+  });
 }
 
 export function vaultDelete(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, CRUD_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, CRUD_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   if (typeof input.confirmSha !== 'string' || !SHA256_RE.test(input.confirmSha)) {
     return {
@@ -194,53 +284,57 @@ export function vaultDelete(input, ctx = {}) {
       error: { code: 'CONFIRM_SHA', message: 'confirmSha must be 64-char hex sha256' },
     };
   }
-  try {
-    const vault = openVault(String(input.vaultId), ctx);
-    return stripMutatorResult(
-      deleteFile({
-        vault,
-        relPath: input.relPath,
-        confirmPath: input.confirmPath,
-        confirmSha: input.confirmSha,
-        planTrailer: input.planTrailer,
-      }),
-    );
-  } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
-  }
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      return stripMutatorResult(
+        deleteFile({
+          vault,
+          relPath: input.relPath,
+          confirmPath: input.confirmPath,
+          confirmSha: input.confirmSha,
+          planTrailer: input.planTrailer,
+        }),
+      );
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
+    }
+  });
 }
 
 export function vaultMerge(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, CRUD_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, CRUD_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId) || assertBodySize(input.body);
   if (bad) return { ok: false, error: bad };
-  try {
-    const vault = openVault(String(input.vaultId), ctx);
-    return stripMutatorResult(
-      mergeFiles({
-        vault,
-        sources: input.sources,
-        confirmSources: input.confirmSources,
-        confirmShas: input.confirmShas,
-        target: input.target,
-        body: input.body,
-        frontmatter: input.frontmatter,
-        planTrailer: input.planTrailer,
-      }),
-    );
-  } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
-  }
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      return stripMutatorResult(
+        mergeFiles({
+          vault,
+          sources: input.sources,
+          confirmSources: input.confirmSources,
+          confirmShas: input.confirmShas,
+          target: input.target,
+          body: input.body,
+          frontmatter: input.frontmatter,
+          planTrailer: input.planTrailer,
+        }),
+      );
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
+    }
+  });
 }
 
 export function vaultReadSha(input, ctx = {}) {
   const allowed = new Set(['vaultId', 'relPath']);
-  const bad = rejectUnknownKeys(input, allowed) || assertVaultId(input.vaultId);
+  const g = gate(input, allowed, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   try {
     const vault = openVault(String(input.vaultId), ctx);
@@ -255,49 +349,121 @@ export function vaultReadSha(input, ctx = {}) {
       bytes: readFileSync(located.absPath, 'utf8').length,
     };
   } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/** Read canonical file for editor (body + frontmatter + confirmSha). */
+export function vaultRead(input, ctx = {}) {
+  const allowed = new Set(['vaultId', 'relPath']);
+  const g = gate(input, allowed, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    const vault = openVault(String(input.vaultId), ctx);
+    const located = assertAllowedPath(vault.root, input.relPath);
+    if (!existsSync(located.absPath)) {
+      return { ok: false, error: { code: 'MISSING', message: `Not found: ${located.relPath}` } };
+    }
+    const text = readFileSync(located.absPath, 'utf8');
+    const { data, body, hasFm } = parseFrontmatter(text);
     return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
+      ok: true,
+      relPath: located.relPath,
+      confirmSha: sha256Text(text),
+      hasFrontmatter: hasFm,
+      frontmatter: data || {},
+      body,
+      bytes: Buffer.byteLength(text, 'utf8'),
     };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/** List editable relative paths under allowed prefixes. */
+export function vaultList(input, ctx = {}) {
+  const allowed = new Set(['vaultId']);
+  const g = gate(input, allowed, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    const vault = openVault(String(input.vaultId), ctx);
+    const groups = { rules: [], memory: [], docs: [] };
+    for (const prefix of ALLOWED_PREFIXES) {
+      const dir = join(vault.root, prefix.replace(/\/$/, ''));
+      if (!existsSync(dir)) continue;
+      const files = readdirSync(dir).filter((f) => f.endsWith('.md') && !f.endsWith('.local.md'));
+      for (const f of files) {
+        const rel = `${prefix}${f}`;
+        if (prefix.startsWith('rules/')) groups.rules.push(rel);
+        else if (prefix.startsWith('memory/')) groups.memory.push(rel);
+        else groups.docs.push(rel);
+      }
+    }
+    for (const k of Object.keys(groups)) groups[k].sort();
+    return { ok: true, ...groups };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
   }
 }
 
 export function vaultWikilinks(input, ctx = {}) {
   const allowed = new Set(['vaultId']);
-  const bad = rejectUnknownKeys(input, allowed) || assertVaultId(input.vaultId);
+  const g = gate(input, allowed, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   try {
     const vault = openVault(String(input.vaultId), ctx);
     return { ok: true, targets: listWikilinkTargets(vault) };
   } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
+    return { ok: false, error: normalizeError(e) };
   }
 }
 
 export function vaultSyncPreview(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, SYNC_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, SYNC_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   try {
     const vault = openVault(String(input.vaultId), ctx);
     const result = syncAgentViews(vault.root, { dryRun: true });
-    return { ok: true, ...toSyncPreview(result) };
+    return { ok: true, vaultId: String(input.vaultId), ...toSyncPreview(result) };
   } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
+    return { ok: false, error: normalizeError(e) };
   }
 }
 
 /**
- * Re-validate dry-run + planToken, refuse conflicts, then apply.
- * No force / clobber bypass exists on this path.
+ * Fleet-shaped preview: one dry-run per vaultId (T5 UI target list).
+ * Does not yet rewrite sources from plugin rules/ — that is sync --all follow-up.
  */
+export function vaultSyncPreviewMany(input, ctx = {}) {
+  const g = gate(input, SYNC_MANY_KEYS, ctx);
+  if (g) return g;
+  const ids = Array.isArray(input.vaultIds) ? input.vaultIds : [];
+  if (!ids.length) {
+    return { ok: false, error: { code: 'VAULT_IDS', message: 'vaultIds required' } };
+  }
+  if (ids.length > 64) {
+    return { ok: false, error: { code: 'VAULT_IDS', message: 'vaultIds capped at 64' } };
+  }
+  const results = [];
+  for (const id of ids) {
+    const one = vaultSyncPreview({ vaultId: id }, ctx);
+    results.push(one.ok ? one : { ok: false, vaultId: id, error: one.error });
+  }
+  return { ok: true, results };
+}
+
 export function vaultSyncApply(input, ctx = {}) {
-  const bad = rejectUnknownKeys(input, SYNC_KEYS) || assertVaultId(input.vaultId);
+  const g = gate(input, SYNC_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   if (typeof input.planToken !== 'string' || !SHA256_RE.test(input.planToken)) {
     return {
@@ -305,48 +471,93 @@ export function vaultSyncApply(input, ctx = {}) {
       error: { code: 'PLAN_TOKEN', message: 'planToken required (from vaultSyncPreview)' },
     };
   }
-  try {
-    const vault = openVault(String(input.vaultId), ctx);
-    const dry = syncAgentViews(vault.root, { dryRun: true });
-    const preview = toSyncPreview(dry);
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      const dry = syncAgentViews(vault.root, { dryRun: true });
+      const preview = toSyncPreview(dry);
 
-    if (preview.planToken !== input.planToken) {
-      return {
-        ok: false,
-        error: {
-          code: 'PLAN_STALE',
-          message: 'Working tree changed since preview — run vaultSyncPreview again',
-        },
-      };
+      if (preview.planToken !== input.planToken) {
+        return {
+          ok: false,
+          error: {
+            code: 'PLAN_STALE',
+            message: 'Working tree changed since preview — run vaultSyncPreview again',
+          },
+        };
+      }
+
+      if (dry.status === 'conflict' || (dry.classified?.conflicts?.length ?? 0) > 0) {
+        return {
+          ok: false,
+          error: {
+            code: 'SYNC_CONFLICT',
+            message: 'Sync conflicts — refuse apply (no clobber)',
+            conflicts: preview.conflicts,
+          },
+        };
+      }
+
+      const applied = syncAgentViews(vault.root, { dryRun: false });
+      if (applied.status === 'conflict') {
+        return {
+          ok: false,
+          error: {
+            code: 'SYNC_CONFLICT',
+            message: 'Conflict on apply',
+          },
+        };
+      }
+
+      return { ok: true, vaultId, ...summarizeSyncResult(applied) };
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
     }
+  });
+}
 
-    if (dry.status === 'conflict' || (dry.classified?.conflicts?.length ?? 0) > 0) {
-      return {
-        ok: false,
-        error: {
-          code: 'SYNC_CONFLICT',
-          message: dry.message || 'Sync conflicts — refuse apply (no clobber)',
-          conflicts: preview.conflicts,
-        },
-      };
-    }
-
-    const applied = syncAgentViews(vault.root, { dryRun: false });
-    if (applied.status === 'conflict') {
-      return {
-        ok: false,
-        error: {
-          code: 'SYNC_CONFLICT',
-          message: applied.message || 'Conflict on apply',
-        },
-      };
-    }
-
-    return { ok: true, ...summarizeSyncResult(applied) };
-  } catch (e) {
-    return {
-      ok: false,
-      error: { code: e.code || 'ERROR', message: e.message || String(e) },
-    };
+/** Apply per-target planTokens (fleet UI). Continues on per-target failure. */
+export function vaultSyncApplyMany(input, ctx = {}) {
+  const g = gate(input, SYNC_APPLY_MANY_KEYS, ctx);
+  if (g) return g;
+  const targets = Array.isArray(input.targets) ? input.targets : [];
+  if (!targets.length) {
+    return { ok: false, error: { code: 'TARGETS', message: 'targets required' } };
   }
+  const results = [];
+  for (const t of targets) {
+    const one = vaultSyncApply(
+      { vaultId: t.vaultId, planToken: t.planToken },
+      ctx,
+    );
+    results.push({ vaultId: t.vaultId, ...one });
+  }
+  const allOk = results.every((r) => r.ok);
+  return { ok: allOk, results };
+}
+
+/** Registry + plugin ids for fleet target picker (server-rendered). */
+export function listSyncTargets(ctx = {}) {
+  const ctxErr = assertCtxAllowed(ctx);
+  if (ctxErr) return { ok: false, error: ctxErr };
+  const plugin = pluginRoot();
+  const ids = new Map();
+  ids.set(basename(plugin), {
+    id: basename(plugin),
+    source: 'plugin',
+    pathLabel: '<plugin>',
+  });
+  try {
+    const reg = ctx.registry || loadRegistry();
+    for (const p of reg.projects || []) {
+      if (!p?.id || !p?.path || !existsSync(p.path)) continue;
+      if (!ids.has(p.id)) {
+        ids.set(p.id, { id: p.id, source: 'registry', pathLabel: '<registry>' });
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { ok: true, targets: [...ids.values()].sort((a, b) => a.id.localeCompare(b.id)) };
 }

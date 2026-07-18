@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PluginMapGraph } from "@/components/PluginMapGraph";
+import { VaultWorkspace } from "@/components/VaultWorkspace";
 import {
   loadAllProjects,
   loadDocsIndex,
@@ -9,6 +10,7 @@ import {
   loadPluginGraph,
   projectHealth,
 } from "@/lib/data";
+import { listSyncTargets } from "@/lib/vault-gateway";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,10 @@ export default async function ProjectPage({
   const plans = loadPlansMarkdown(project.path);
   const health = projectHealth(project);
   const projectItems = (knowledge?.items || []).filter((i) => i.project_id === project.id);
+  const syncTargets = listSyncTargets();
+  const fleetTargets = syncTargets.ok
+    ? (syncTargets.targets as Array<{ id: string; source: string }>)
+    : projects.map((p) => ({ id: p.id, source: p.source || "registry" }));
 
   const byLifecycle = {
     pre_official: (docs?.docs || []).filter((d) => d.lifecycle === "pre_official"),
@@ -54,6 +60,8 @@ export default async function ProjectPage({
           <span className="badge">{project.status}</span>
         </div>
       </div>
+
+      <VaultWorkspace vaultId={project.id} fleetTargets={fleetTargets} />
 
       <section className="grid gap-4 sm:grid-cols-4">
         <div className="panel">
@@ -86,8 +94,8 @@ export default async function ProjectPage({
         <section className="panel">
           <h2 className="text-lg font-medium">Plugin map</h2>
           <p className="mt-2 text-sm text-slate-400">
-            No <code>docs/generated/plugin-graph.json</code> for this project (expected only on the plugin
-            repo).
+            No <code>docs/generated/plugin-graph.json</code> for this project (expected only on the
+            plugin repo).
           </p>
         </section>
       )}
@@ -123,8 +131,12 @@ export default async function ProjectPage({
       <section className="panel">
         <h2 className="mb-3 text-lg font-medium">Knowledge browser</h2>
         <p className="mb-3 text-sm text-slate-400">
-          Read-only · {projectItems.length} items for this project
+          Canonical memory + docs (indexed) · {projectItems.length} items
           {!knowledge && " (run npm run build:knowledge)"}
+        </p>
+        <p className="mb-3 text-xs text-slate-500">
+          Native session memory is agent-owned and not shown here — edit canonical memory in the vault
+          editor above.
         </p>
         <ul className="max-h-80 space-y-2 overflow-y-auto text-sm">
           {projectItems.slice(0, 50).map((item) => (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ConstellationGraph } from "@/components/ConstellationGraph";
+import { OverviewSummary } from "@/components/OverviewSummary";
 import {
   constellationEdges,
   loadAllProjects,
@@ -30,6 +31,18 @@ export default function OverviewPage() {
             : ""}
           . Indexes are rebuildable; markdown stays source of truth.
         </p>
+        <div className="sr-only">
+          <OverviewSummary
+            projects={projects.map((p) => ({
+              id: p.id,
+              name: p.name,
+              source: p.source,
+              status: p.status,
+              agents: p.agents,
+            }))}
+            edgeCount={edges.length}
+          />
+        </div>
       </section>
 
       <section className="panel">

@@ -17,7 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/" className="text-xl font-semibold tracking-tight text-emerald-300 no-underline">
                 Luna Studio
               </Link>
-              <p className="mt-1 text-sm text-slate-400">Read-only knowledge control plane · Phase 1</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Knowledge control plane · vault edit + sync (Phase 2)
+              </p>
             </div>
             <nav className="flex gap-4 text-sm text-slate-300">
               <Link href="/">Overview</Link>

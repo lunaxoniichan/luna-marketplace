@@ -295,6 +295,16 @@ function git(root, args) {
 }
 
 /**
+ * True when a git invocation failed because the repo index is locked by a
+ * concurrent process (`.git/index.lock` present). This is the authoritative
+ * cross-process mutation guard — the in-process gateway lock cannot see it.
+ */
+function isGitLockError(e) {
+  const s = String(e?.stderr || e?.message || e || '');
+  return /index\.lock|Unable to create[^\n]*\.lock|another git process|File exists/i.test(s);
+}
+
+/**
  * @param {string} root
  * @param {string[]} relPaths
  * @param {string} message
@@ -302,14 +312,30 @@ function git(root, args) {
  */
 export function commitPaths(root, relPaths, message, planTrailer) {
   const unique = [...new Set(relPaths.map((p) => p.replace(/\\/g, '/')))];
-  for (const p of unique) {
-    git(root, ['add', '--', p]);
+  try {
+    for (const p of unique) {
+      git(root, ['add', '--', p]);
+    }
+  } catch (e) {
+    if (isGitLockError(e)) {
+      throw Object.assign(new Error('vault busy: git index is locked by another process — retry'), {
+        code: 'VAULT_BUSY',
+      });
+    }
+    throw e;
   }
   const msg = planTrailer ? `${message}\n\n${planTrailer}\n` : `${message}\n`;
   const tmpMsg = join(tmpdir(), `luna-vault-crud-${process.pid}-${Date.now()}.msg`);
   writeFileSync(tmpMsg, msg, 'utf8');
   try {
     git(root, ['commit', '-F', tmpMsg, '--', ...unique]);
+  } catch (e) {
+    if (isGitLockError(e)) {
+      throw Object.assign(new Error('vault busy: git index is locked by another process — retry'), {
+        code: 'VAULT_BUSY',
+      });
+    }
+    throw e;
   } finally {
     try {
       unlinkSync(tmpMsg);
@@ -420,7 +446,7 @@ export function createFile(opts) {
     }
     return {
       ok: false,
-      error: { code: 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
+      error: { code: e?.code || 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
       note: 'create rolled back (new file unlinked)',
     };
   }
@@ -490,7 +516,7 @@ export function updateFile(opts) {
     }
     return {
       ok: false,
-      error: { code: 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
+      error: { code: e?.code || 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
       note: 'update rolled back to previous file bytes',
     };
   }
@@ -579,7 +605,7 @@ export function deleteFile(opts) {
     }
     return {
       ok: false,
-      error: { code: 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
+      error: { code: e?.code || 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
       note: 'delete rolled back (file restored)',
       warnings,
     };
@@ -718,7 +744,7 @@ export function mergeFiles(opts) {
     }
     return {
       ok: false,
-      error: { code: 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
+      error: { code: e?.code || 'GIT_COMMIT', message: String(e?.stderr || e.message || e) },
       note: 'merge rolled back (target + sources restored)',
     };
   }
