@@ -1,3 +1,14 @@
+---
+title: Phase 1 review fixes
+scope: project
+type: plan
+lifecycle: official
+status: done
+keywords: [review, fixes]
+related: []
+updated: 2026-06-15
+---
+
 # Phase 1 review fixes
 
 **Goal:** Fix correctness bugs from Phase 1 review before Phase 2.

@@ -1,0 +1,785 @@
+{
+  "generated_at": "2026-07-18T14:52:09.569Z",
+  "root": "luna-marketplace",
+  "counts": {
+    "skills": 39,
+    "agents": 8,
+    "rules": 8,
+    "phases": 4,
+    "hook_events": 5,
+    "hook_commands": 11,
+    "edges": 26
+  },
+  "workflow": {
+    "name": "default",
+    "variants": [
+      "trivial",
+      "skip_phases",
+      "note",
+      "fix",
+      "spike",
+      "refactor"
+    ],
+    "phases": [
+      {
+        "id": "dev-brainstorm",
+        "gate": "",
+        "description": "",
+        "suggested_skills": [
+          "dev-brainstorm",
+          "dev-research",
+          "dev-audit",
+          "vibe-rules"
+        ]
+      },
+      {
+        "id": "system-design",
+        "gate": "",
+        "description": "",
+        "suggested_skills": [
+          "doc-update-project",
+          "design-system",
+          "design-database",
+          "design-frontend"
+        ]
+      },
+      {
+        "id": "dev-plan",
+        "gate": "",
+        "description": "",
+        "suggested_skills": [
+          "dev-plan",
+          "dev-audit",
+          "dev-parallel",
+          "vibe-rules"
+        ]
+      },
+      {
+        "id": "dev-execute",
+        "gate": "",
+        "description": "",
+        "suggested_skills": [
+          "vibe-rules",
+          "dev-execute",
+          "dev-tdd",
+          "dev-debug",
+          "dev-verify",
+          "dev-parallel",
+          "review-code",
+          "review-simplify",
+          "dev-refactor",
+          "review-security",
+          "review-performance",
+          "doc-update-project",
+          "doc-update-agent",
+          "dev-commit"
+        ]
+      }
+    ]
+  },
+  "hooks": {
+    "events": [
+      {
+        "event": "SessionStart",
+        "matchers": 1,
+        "commands": 1
+      },
+      {
+        "event": "PreToolUse",
+        "matchers": 3,
+        "commands": 6
+      },
+      {
+        "event": "PostToolUse",
+        "matchers": 2,
+        "commands": 2
+      },
+      {
+        "event": "Stop",
+        "matchers": 1,
+        "commands": 1
+      },
+      {
+        "event": "SessionEnd",
+        "matchers": 1,
+        "commands": 1
+      }
+    ],
+    "commandCount": 11
+  },
+  "nodes": [
+    {
+      "id": "skill:design-database",
+      "kind": "skill",
+      "name": "design-database",
+      "description": "Use when designing or revising a database schema — produce an entity model in dbdiagram (DBML) form with keys, relationships, and indexes, then write DATABASE_DESIGN.md",
+      "path": "skills/design-database/SKILL.md"
+    },
+    {
+      "id": "skill:design-frontend",
+      "kind": "skill",
+      "name": "design-frontend",
+      "description": "Use when generating UI from a style direction, a prompt, or a reference URL — produce a concrete component/layout design before implementing it",
+      "path": "skills/design-frontend/SKILL.md"
+    },
+    {
+      "id": "skill:design-system",
+      "kind": "skill",
+      "name": "design-system",
+      "description": "Use when establishing or reviewing design tokens and a component vocabulary — colors, type scale, spacing, radii, and a mock UI to prove them",
+      "path": "skills/design-system/SKILL.md"
+    },
+    {
+      "id": "skill:dev-audit",
+      "kind": "skill",
+      "name": "dev-audit",
+      "description": "Use to pressure-test a proposed idea, design, or plan before committing to it — surface feasibility, risks, unknowns, and a go / no-go recommendation",
+      "path": "skills/dev-audit/SKILL.md"
+    },
+    {
+      "id": "skill:dev-brainstorm",
+      "kind": "skill",
+      "name": "dev-brainstorm",
+      "description": "Use before creative work — features, components, behavior changes. Explores intent and design before implementation.",
+      "path": "skills/dev-brainstorm/SKILL.md"
+    },
+    {
+      "id": "skill:dev-commit",
+      "kind": "skill",
+      "name": "dev-commit",
+      "description": "Use when the user explicitly asks to commit — conventional message plus Plan trailer during plan work",
+      "path": "skills/dev-commit/SKILL.md"
+    },
+    {
+      "id": "skill:dev-debug",
+      "kind": "skill",
+      "name": "dev-debug",
+      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+      "path": "skills/dev-debug/SKILL.md"
+    },
+    {
+      "id": "skill:dev-execute",
+      "kind": "skill",
+      "name": "dev-execute",
+      "description": "Use when implementing a written plan in docs/plans/ — task-by-task with verification checkpoints",
+      "path": "skills/dev-execute/SKILL.md"
+    },
+    {
+      "id": "skill:dev-parallel",
+      "kind": "skill",
+      "name": "dev-parallel",
+      "description": "Use when facing 2+ independent tasks with no shared state or sequential dependency — dispatch one focused subagent per problem domain to work concurrently",
+      "path": "skills/dev-parallel/SKILL.md"
+    },
+    {
+      "id": "skill:dev-plan",
+      "kind": "skill",
+      "name": "dev-plan",
+      "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+      "path": "skills/dev-plan/SKILL.md"
+    },
+    {
+      "id": "skill:dev-refactor",
+      "kind": "skill",
+      "name": "dev-refactor",
+      "description": "Use for dedicated dedupe/cleanup sprints across a repo or domain area — inventory clones, consolidate, reshape modules, delete dead code. Not for PR-time diff passes (use review-simplify).",
+      "path": "skills/dev-refactor/SKILL.md"
+    },
+    {
+      "id": "skill:dev-research",
+      "kind": "skill",
+      "name": "dev-research",
+      "description": "Use when the user wants thorough, cited research from multiple web sources before deciding or building — \"research\", \"deep dive\", \"investigate\", \"what's the current state of\"",
+      "path": "skills/dev-research/SKILL.md"
+    },
+    {
+      "id": "skill:dev-tdd",
+      "kind": "skill",
+      "name": "dev-tdd",
+      "description": "Use when implementing any feature or bugfix, before writing implementation code",
+      "path": "skills/dev-tdd/SKILL.md"
+    },
+    {
+      "id": "skill:dev-verify",
+      "kind": "skill",
+      "name": "dev-verify",
+      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence",
+      "path": "skills/dev-verify/SKILL.md"
+    },
+    {
+      "id": "skill:doc-init",
+      "kind": "skill",
+      "name": "doc-init",
+      "description": "Scaffold the minimum project doc set for Luna Agent Kit — idempotent, never overwrites existing files. Wires both Claude Code and Cursor.",
+      "path": "skills/doc-init/SKILL.md"
+    },
+    {
+      "id": "skill:doc-simplify",
+      "kind": "skill",
+      "name": "doc-simplify",
+      "description": "Use when a doc grew too long, fragmented, or repetitive — right-size it by trimming, merging, splitting, and deduping without losing facts",
+      "path": "skills/doc-simplify/SKILL.md"
+    },
+    {
+      "id": "skill:doc-update-agent",
+      "kind": "skill",
+      "name": "doc-update-agent",
+      "description": "Use when plan/backlog status changed or the user corrected an approach — sync PLANS.md/TODO.md and append lessons to the rules",
+      "path": "skills/doc-update-agent/SKILL.md"
+    },
+    {
+      "id": "skill:doc-update-project",
+      "kind": "skill",
+      "name": "doc-update-project",
+      "description": "Use after a code change alters architecture, structure, schema, or API — sync the human/architecture docs so they match the code",
+      "path": "skills/doc-update-project/SKILL.md"
+    },
+    {
+      "id": "skill:gitnexus-group-setup",
+      "kind": "skill",
+      "name": "gitnexus-group-setup",
+      "description": "Use when a project has git submodules with independent GitNexus indexes — wire them into a group so group_query and group_contracts search across all repos in one call",
+      "path": "skills/gitnexus-group-setup/SKILL.md"
+    },
+    {
+      "id": "skill:hook-author",
+      "kind": "skill",
+      "name": "hook-author",
+      "description": "Use when creating or editing a Claude Code / Cursor hook — wire hooks.json events, matchers, and scripts with the kit's fail-open and cross-tool conventions",
+      "path": "skills/hook-author/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-api",
+      "kind": "skill",
+      "name": "kwb-api",
+      "description": "Use when designing or reviewing REST endpoints — resource naming, status codes, pagination, filtering, error shape, versioning, and rate limiting",
+      "path": "skills/kwb-api/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-deploy",
+      "kind": "skill",
+      "name": "kwb-deploy",
+      "description": "Use when setting up CI/CD, planning a deployment strategy, adding health checks, validating env config, or preparing a production release",
+      "path": "skills/kwb-deploy/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-docker",
+      "kind": "skill",
+      "name": "kwb-docker",
+      "description": "Use when setting up Docker Compose for local dev, writing/reviewing Dockerfiles, or debugging container networking, volumes, or security",
+      "path": "skills/kwb-docker/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-frontend",
+      "kind": "skill",
+      "name": "kwb-frontend",
+      "description": "Use when building or reviewing React/Next.js UI — component composition, hooks, state, performance, forms, error boundaries, and accessibility",
+      "path": "skills/kwb-frontend/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-nextjs",
+      "kind": "skill",
+      "name": "kwb-nextjs",
+      "description": "Use when developing, debugging, or reviewing a Next.js 16+ / Turbopack app — dev speed, bundling, and the proxy.ts middleware naming change",
+      "path": "skills/kwb-nextjs/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-postgres",
+      "kind": "skill",
+      "name": "kwb-postgres",
+      "description": "Use when writing SQL or migrations, designing a Postgres schema, choosing indexes, implementing Row Level Security, or diagnosing slow queries",
+      "path": "skills/kwb-postgres/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-python",
+      "kind": "skill",
+      "name": "kwb-python",
+      "description": "Use when writing or reviewing Python — idiomatic patterns, type hints, error handling, context managers, dataclasses, concurrency, and anti-patterns",
+      "path": "skills/kwb-python/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-python-testing",
+      "kind": "skill",
+      "name": "kwb-python-testing",
+      "description": "Use when writing or reviewing Python tests — pytest fixtures, parametrization, mocking, async tests, markers, coverage, and TDD discipline",
+      "path": "skills/kwb-python-testing/SKILL.md"
+    },
+    {
+      "id": "skill:kwb-typescript",
+      "kind": "skill",
+      "name": "kwb-typescript",
+      "description": "Use when writing or reviewing TypeScript/JavaScript for baseline quality — naming, immutability, type safety, error handling, and code smells",
+      "path": "skills/kwb-typescript/SKILL.md"
+    },
+    {
+      "id": "skill:review-code",
+      "kind": "skill",
+      "name": "review-code",
+      "description": "Use when completing tasks, major features, or before merge — standalone correctness review",
+      "path": "skills/review-code/SKILL.md"
+    },
+    {
+      "id": "skill:review-performance",
+      "kind": "skill",
+      "name": "review-performance",
+      "description": "Use when reviewing hot paths, loops over data, DB access, or large allocations — catch N+1 queries, needless work, and avoidable allocations",
+      "path": "skills/review-performance/SKILL.md"
+    },
+    {
+      "id": "skill:review-security",
+      "kind": "skill",
+      "name": "review-security",
+      "description": "Use when changing auth, handling user input, touching secrets/credentials, adding API endpoints, or implementing payment/sensitive features — security review against OWASP basics",
+      "path": "skills/review-security/SKILL.md"
+    },
+    {
+      "id": "skill:review-simplify",
+      "kind": "skill",
+      "name": "review-simplify",
+      "description": "Use after code changes to reduce duplication, dead code, and unnecessary complexity within the diff — preserve behavior. For repo-wide cleanup sprints use dev-refactor instead.",
+      "path": "skills/review-simplify/SKILL.md"
+    },
+    {
+      "id": "skill:skill-audit",
+      "kind": "skill",
+      "name": "skill-audit",
+      "description": "Use to review the installed skill set for drift, staleness, oversize, broken references, or redundancy — keeps the kit from rotting into bloat",
+      "path": "skills/skill-audit/SKILL.md"
+    },
+    {
+      "id": "skill:skill-author",
+      "kind": "skill",
+      "name": "skill-author",
+      "description": "Use when creating or editing a skill — author and verify SKILL.md with a test-first, behavior-shaping discipline before deploying",
+      "path": "skills/skill-author/SKILL.md"
+    },
+    {
+      "id": "skill:skill-compare",
+      "kind": "skill",
+      "name": "skill-compare",
+      "description": "Use when deciding whether to adopt, update, or drop a skill versus the reference forks — diff our version against superpowers/ECC/cpo and recommend",
+      "path": "skills/skill-compare/SKILL.md"
+    },
+    {
+      "id": "skill:vibe-rules",
+      "kind": "skill",
+      "name": "vibe-rules",
+      "description": "Use when you need generic engineering rules (vibe coding loop, failure modes, implementation, fixing, testing, GitNexus) — project-agnostic; invoke instead of improvising process or duplicating rules ",
+      "path": "skills/vibe-rules/SKILL.md"
+    },
+    {
+      "id": "skill:workflow-guide",
+      "kind": "skill",
+      "name": "workflow-guide",
+      "description": "Use when starting any conversation — how to find skills, read WORKFLOW.md, and when to use Luna vs native workflows",
+      "path": "skills/workflow-guide/SKILL.md"
+    },
+    {
+      "id": "skill:workflow-update",
+      "kind": "skill",
+      "name": "workflow-update",
+      "description": "Use when changing project workflow phases, gates, suggested_skills, variants, or the inline Mermaid diagram in WORKFLOW.md",
+      "path": "skills/workflow-update/SKILL.md"
+    },
+    {
+      "id": "agent:dev-brainstorm",
+      "kind": "agent",
+      "name": "dev-brainstorm",
+      "description": "Use to run a Socratic design session as a subagent — explore a problem space through questions, surface assumptions and alternatives, and return a design direction. The agent form of the dev-brainstor",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "WebFetch"
+      ],
+      "model": "inherit",
+      "path": "agents/dev-brainstorm.md"
+    },
+    {
+      "id": "agent:document-agent",
+      "kind": "agent",
+      "name": "document-agent",
+      "description": "Use to apply the doc-update-agent rubric to PLANS/TODO + lessons in an isolated context — sync plan/backlog status and append corrections to the rules. One of two doc agents (agent-state class).",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/document-agent.md"
+    },
+    {
+      "id": "agent:document-project",
+      "kind": "agent",
+      "name": "document-project",
+      "description": "Use to apply the doc-update-project / doc-simplify rubric to named paths in an isolated context — sync architecture/structure/schema/API docs after a code change. One of two doc agents (project class)",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/document-project.md"
+    },
+    {
+      "id": "agent:execute",
+      "kind": "agent",
+      "name": "execute",
+      "description": "Use to implement ONE plan task in an isolated context — given a self-contained task spec, write the code and tests, verify, and return a summary. No bundled review (review is a separate, user-invoked ",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/execute.md"
+    },
+    {
+      "id": "agent:refactor-cleaner",
+      "kind": "agent",
+      "name": "refactor-cleaner",
+      "description": "Dead code cleanup and deduplication specialist for multi-session refactor sprints. Use for repo-wide or domain-area cleanup — not for PR-time diff passes (use review-simplify via review-internal).",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/refactor-cleaner.md"
+    },
+    {
+      "id": "agent:review-external",
+      "kind": "agent",
+      "name": "review-external",
+      "description": "Use to collect human/user-facing UI/UX feedback on a running app from distinct user personas, then consolidate into a Blocker/Friction/Nice-to-have acceptance matrix. User-invoked; owns the acceptance",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/review-external.md"
+    },
+    {
+      "id": "agent:review-internal",
+      "kind": "agent",
+      "name": "review-internal",
+      "description": "Use at PR time or before merge to run a consolidated internal review (correctness, security, performance, simplification) and return one merged report. User-invoked; runs in isolated context so there ",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/review-internal.md"
+    },
+    {
+      "id": "agent:test",
+      "kind": "agent",
+      "name": "test",
+      "description": "Use to run the tests for a scoped change in an isolated context and return evidence — which tests ran, pass/fail counts, and the failure output. Does not fix code.",
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash"
+      ],
+      "model": "inherit",
+      "path": "agents/test.md"
+    },
+    {
+      "id": "rule:codebase-awareness",
+      "kind": "rule",
+      "name": "codebase-awareness",
+      "path": ".claude/rules/codebase-awareness.md"
+    },
+    {
+      "id": "rule:core",
+      "kind": "rule",
+      "name": "core",
+      "path": ".claude/rules/core.md"
+    },
+    {
+      "id": "rule:docs",
+      "kind": "rule",
+      "name": "docs",
+      "path": ".claude/rules/docs.md"
+    },
+    {
+      "id": "rule:git",
+      "kind": "rule",
+      "name": "git",
+      "path": ".claude/rules/git.md"
+    },
+    {
+      "id": "rule:knowledge-stack",
+      "kind": "rule",
+      "name": "knowledge-stack",
+      "path": ".claude/rules/knowledge-stack.md"
+    },
+    {
+      "id": "rule:lessons",
+      "kind": "rule",
+      "name": "lessons",
+      "path": ".claude/rules/lessons.md"
+    },
+    {
+      "id": "rule:vibe-coding",
+      "kind": "rule",
+      "name": "vibe-coding",
+      "path": ".claude/rules/vibe-coding.md"
+    },
+    {
+      "id": "rule:workflow",
+      "kind": "rule",
+      "name": "workflow",
+      "path": ".claude/rules/workflow.md"
+    },
+    {
+      "id": "phase:dev-brainstorm",
+      "kind": "phase",
+      "name": "dev-brainstorm",
+      "gate": "",
+      "description": "",
+      "suggested_skills": [
+        "dev-brainstorm",
+        "dev-research",
+        "dev-audit",
+        "vibe-rules"
+      ]
+    },
+    {
+      "id": "phase:system-design",
+      "kind": "phase",
+      "name": "system-design",
+      "gate": "",
+      "description": "",
+      "suggested_skills": [
+        "doc-update-project",
+        "design-system",
+        "design-database",
+        "design-frontend"
+      ]
+    },
+    {
+      "id": "phase:dev-plan",
+      "kind": "phase",
+      "name": "dev-plan",
+      "gate": "",
+      "description": "",
+      "suggested_skills": [
+        "dev-plan",
+        "dev-audit",
+        "dev-parallel",
+        "vibe-rules"
+      ]
+    },
+    {
+      "id": "phase:dev-execute",
+      "kind": "phase",
+      "name": "dev-execute",
+      "gate": "",
+      "description": "",
+      "suggested_skills": [
+        "vibe-rules",
+        "dev-execute",
+        "dev-tdd",
+        "dev-debug",
+        "dev-verify",
+        "dev-parallel",
+        "review-code",
+        "review-simplify",
+        "dev-refactor",
+        "review-security",
+        "review-performance",
+        "doc-update-project",
+        "doc-update-agent",
+        "dev-commit"
+      ]
+    },
+    {
+      "id": "hook:SessionStart",
+      "kind": "hook",
+      "name": "SessionStart",
+      "matchers": 1,
+      "commands": 1
+    },
+    {
+      "id": "hook:PreToolUse",
+      "kind": "hook",
+      "name": "PreToolUse",
+      "matchers": 3,
+      "commands": 6
+    },
+    {
+      "id": "hook:PostToolUse",
+      "kind": "hook",
+      "name": "PostToolUse",
+      "matchers": 2,
+      "commands": 2
+    },
+    {
+      "id": "hook:Stop",
+      "kind": "hook",
+      "name": "Stop",
+      "matchers": 1,
+      "commands": 1
+    },
+    {
+      "id": "hook:SessionEnd",
+      "kind": "hook",
+      "name": "SessionEnd",
+      "matchers": 1,
+      "commands": 1
+    }
+  ],
+  "edges": [
+    {
+      "from": "phase:dev-brainstorm",
+      "to": "skill:dev-brainstorm",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-brainstorm",
+      "to": "skill:dev-research",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-brainstorm",
+      "to": "skill:dev-audit",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-brainstorm",
+      "to": "skill:vibe-rules",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:system-design",
+      "to": "skill:doc-update-project",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:system-design",
+      "to": "skill:design-system",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:system-design",
+      "to": "skill:design-database",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:system-design",
+      "to": "skill:design-frontend",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-plan",
+      "to": "skill:dev-plan",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-plan",
+      "to": "skill:dev-audit",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-plan",
+      "to": "skill:dev-parallel",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-plan",
+      "to": "skill:vibe-rules",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:vibe-rules",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-execute",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-tdd",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-debug",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-verify",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-parallel",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:review-code",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:review-simplify",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-refactor",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:review-security",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:review-performance",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:doc-update-project",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:doc-update-agent",
+      "type": "suggests"
+    },
+    {
+      "from": "phase:dev-execute",
+      "to": "skill:dev-commit",
+      "type": "suggests"
+    }
+  ],
+  "health": {
+    "broken_suggested_skills": []
+  }
+}

@@ -1,3 +1,14 @@
+---
+title: Luna Agent Kit — System Design
+scope: project
+type: architecture
+lifecycle: official
+status: active
+keywords: [architecture, plugin, workflow, gitnexus]
+related: []
+updated: 2026-07-18
+---
+
 # Luna Agent Kit — System Design
 
 > Architecture for user-level plugin `luna-agent-kit@luna-marketplace`. Component inventory:

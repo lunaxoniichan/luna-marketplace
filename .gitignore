@@ -13,3 +13,14 @@ __pycache__/
 **/.cursor/
 .cursor/
 temp/
+
+.luna/
+
+# Next.js Studio
+studio/node_modules/
+studio/.next/
+studio/out/
+studio/tsconfig.tsbuildinfo
+
+# Machine-specific Studio aggregate (rebuild: npm run build:knowledge)
+docs/generated/knowledge.json

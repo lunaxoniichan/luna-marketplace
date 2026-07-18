@@ -3,7 +3,22 @@
   "scripts": {
     "jscpd": "jscpd --silent --reporters consolefull .",
     "jscpd:json": "jscpd --silent --reporters json --output .jscpd-report .",
-    "test:hooks": "node tests/hooks/hooks.test.js"
+    "test:hooks": "node tests/hooks/hooks.test.js",
+    "test:generators": "node tests/scripts/generators.test.js",
+    "test:sync-agent-views": "node tests/scripts/sync-agent-views.test.mjs",
+    "test:vault-crud": "node tests/vault-crud/vault-crud.test.mjs",
+    "test:vault-gateway": "node tests/studio/vault-gateway.test.mjs",
+    "test:studio": "node tests/studio/studio.test.js",
+    "build:plugin-graph": "node scripts/build-plugin-graph.mjs",
+    "build:docs-index": "node scripts/build-docs-index.mjs",
+    "build:knowledge": "node scripts/build-knowledge.mjs",
+    "build:indexes": "npm run build:plugin-graph && npm run build:docs-index && npm run build:knowledge",
+    "sync:agent-views": "node scripts/sync-agent-views.mjs",
+    "register": "node scripts/register-project.mjs",
+    "studio": "npm run build:knowledge --silent; LUNA_PLUGIN_ROOT=\"$PWD\" npm --prefix studio run dev",
+    "studio:fixtures": "npm run build:knowledge --silent; LUNA_PLUGIN_ROOT=\"$PWD\" LUNA_STUDIO_FIXTURES=1 npm --prefix studio run dev",
+    "studio:build": "npm --prefix studio run build",
+    "studio:typecheck": "npm --prefix studio run typecheck"
   },
   "devDependencies": {
     "jscpd": "^4.0.5"

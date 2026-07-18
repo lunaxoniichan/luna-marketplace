@@ -1,3 +1,14 @@
+---
+title: Monorepo + submodule refactor playbook
+scope: project
+type: spec
+lifecycle: official
+status: active
+keywords: [monorepo, submodule, refactor, jscpd]
+related: []
+updated: 2026-06-17
+---
+
 # Monorepo + submodule refactor playbook
 
 Copy into your app's `docs/plans/<cleanup>.md` when running a **`dev-refactor`** sprint on a

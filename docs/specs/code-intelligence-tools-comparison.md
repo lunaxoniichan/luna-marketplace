@@ -1,3 +1,14 @@
+---
+title: GitNexus vs codebase-memory-mcp vs CodeGraph
+scope: project
+type: spec
+lifecycle: official
+status: active
+keywords: [gitnexus, jscpd, code-intelligence]
+related: []
+updated: 2026-06-17
+---
+
 # GitNexus vs codebase-memory-mcp vs CodeGraph: Research Report
 
 *Generated: 2026-06-17 | Sources: 24 | Confidence: **High** for Luna recommendation; **Medium** for third-party benchmark claims*

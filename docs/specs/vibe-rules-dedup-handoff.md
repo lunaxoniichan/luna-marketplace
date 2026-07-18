@@ -1,3 +1,14 @@
+---
+title: vibe-rules dedup + ECC retirement — handoff
+scope: project
+type: spec
+lifecycle: official
+status: done
+keywords: [vibe-rules, ecc, handoff]
+related: []
+updated: 2026-06-30
+---
+
 # vibe-rules dedup + ECC retirement — handoff
 
 Plugin Phases 0–6 and review follow-ups are complete. User-level ECC retirement executed per

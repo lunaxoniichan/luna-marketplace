@@ -1,3 +1,14 @@
+---
+title: Luna Agent Kit — v2 build plan (phases 1–4)
+scope: project
+type: plan
+lifecycle: official
+status: done
+keywords: [luna-agent-kit, v2]
+related: []
+updated: 2026-06-15
+---
+
 # Luna Agent Kit — v2 build plan (phases 1–4)
 
 > Repo-resident record of the approved build (full plan: the v2 review in the planning workspace).

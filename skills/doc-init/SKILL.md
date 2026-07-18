@@ -19,12 +19,27 @@ docs/PROJECT_STRUCTURES.md
 docs/PLANS.md
 docs/TODO.md
 docs/workflows/WORKFLOW.md
+docs/pre-official/research/README.md
+docs/pre-official/audits/README.md
+docs/post-official/completed-plans/README.md
+docs/post-official/legacy/README.md
+docs/decisions/README.md
 .claude/rules/lessons.md     (don't-repeat lessons; Claude auto-loads .claude/rules/)
 .jscpd.json                  (duplicate-detection config; read by review-simplify + dedupe-guard hook)
 ```
 
 Created **on first use**, not pre-scaffolded: `docs/plans/<feature>.md` (by `dev-plan`),
 `docs/specs/<topic>.md` (by `dev-brainstorm`).
+
+After scaffolding, **register** the project for Luna Studio:
+
+```bash
+node <plugin-root>/scripts/register-project.mjs [<project-root>]
+# or re-sync later:
+node <plugin-root>/scripts/register-project.mjs --sync [<project-root>]
+```
+
+Writes/updates `~/.claude/luna/registry.json` (override dir with `LUNA_REGISTRY_DIR`).
 
 ## Optional (only when the user asks)
 
@@ -83,6 +98,11 @@ subdirectory. Only create missing files; never overwrite.
 <module>/docs/PLANS.md
 <module>/docs/TODO.md
 <module>/docs/workflows/WORKFLOW.md
+<module>/docs/pre-official/research/README.md
+<module>/docs/pre-official/audits/README.md
+<module>/docs/post-official/completed-plans/README.md
+<module>/docs/post-official/legacy/README.md
+<module>/docs/decisions/README.md
 <module>/.claude/rules/lessons.md
 ```
 
@@ -96,14 +116,17 @@ Report per-module: `[module-name] created: X, skipped: Y`.
 
 1. Detect project root (git root or cwd).
 2. Run `detect-modules.mjs` against the project root → list of module targets.
-3. For each minimum-set path at root level, if missing → create from Luna Agent Kit templates.
+3. For each minimum-set path at root level, if missing → create from Luna Agent Kit templates
+   (lifecycle READMEs from `templates/docs/` + bucket stubs; decisions README).
 4. If `CLAUDE.md` missing and `AGENTS.md` exists → `ln -s AGENTS.md CLAUDE.md`.
-5. For each detected module → scaffold module minimum set (same idempotency rules).
+5. For each detected module → scaffold module minimum set (same idempotency rules), including
+   lifecycle buckets.
 6. Cross-tool: symlink `.cursor/skills` → plugin's `skills/` dir; write `.cursor/rules/*.mdc`;
    write `.cursor/hooks.json` using **absolute paths** resolved from `$CLAUDE_PLUGIN_ROOT` at init
    time (e.g. `node /absolute/path/to/plugin/scripts/hooks/bash-guards.js`) — relative paths break
    because the plugin scripts live in the plugin cache, not the app repo.
-7. Report created vs skipped paths — root first, then one section per module.
+7. **Register** the project: `node <plugin-root>/scripts/register-project.mjs <project-root>`.
+8. Report created vs skipped paths — root first, then one section per module.
 
 ## Duplicate-detection config (`.jscpd.json`)
 
@@ -146,6 +169,10 @@ are per-repo, not inherited from the parent. See `dev-refactor` § Monorepo + su
 - **lessons.md** — header + format line, no entries
 - **WORKFLOW.md** — copy this repo's `docs/workflows/WORKFLOW.md` (plugin default; customize via **`workflow-update`**)
 - **.jscpd.json** — baseline above
+- **Lifecycle buckets** — `docs/pre-official/{research,audits}/README.md`,
+  `docs/post-official/{completed-plans,legacy}/README.md`, `docs/decisions/README.md`
+  (copy from plugin `docs/` stubs or `templates/docs/`)
+- **Front-matter** — see `templates/docs/FRONTMATTER.md` (+ `decision.md`, `memory.md`, `pre-official.md`)
 
 ## Do not
 

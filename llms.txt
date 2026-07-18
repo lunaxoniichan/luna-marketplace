@@ -1,0 +1,18 @@
+# luna-marketplace
+
+> Agent routing index (generated). Full catalog: docs/README.md
+
+## Entry
+- AGENTS.md — AGENTS
+- docs/README.md — doc catalog, ownership, read order
+
+## Official
+- docs/PROJECT_STRUCTURES.md — Luna Agent Kit — Project Structure (structure, layout, skills)
+- docs/SYSTEM_DESIGN.md — Luna Agent Kit — System Design (architecture, plugin, workflow)
+- docs/decisions/2026-07-18-fleet-rules-canonical.md — Fleet rules — plugin rules/ is canonical across registered projects (rules, sync-agent-views, fleet)
+- docs/decisions/2026-07-18-studio-host-first.md — Luna Studio is host-first (no multi-project Docker) (studio, docker, host-first)
+- docs/specs/2026-07-18-doc-lifecycle-pre-official-post.md — Doc lifecycle — PRE_OFFICIAL / OFFICIAL / POST_OFFICIAL (lifecycle, docs, pre_official)
+- docs/specs/2026-07-18-sharks-loop-convergence-oracle.md — Sharks-Loop — convergence oracle for the coding-agent loop (sharks-loop, verification, convergence)
+
+## Code structure
+Use GitNexus MCP — do not grep for call graphs.
