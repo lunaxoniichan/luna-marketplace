@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-07-18T00:00:00.000Z",
+  "root": "fixture-alpha",
+  "counts": {
+    "docs": 1,
+    "pre_official": 0,
+    "official": 1,
+    "post_official": 0
+  },
+  "docs": [
+    {
+      "path": "docs/NOTE.md",
+      "slug": "note",
+      "title": "Fixture note",
+      "scope": "project",
+      "type": "reference",
+      "lifecycle": "official",
+      "status": "active",
+      "keywords": ["fixture", "studio"],
+      "related": [],
+      "wikilinks": [],
+      "supersedes": null,
+      "superseded_by": null,
+      "updated": "2026-07-18",
+      "lines": 14,
+      "has_frontmatter": true
+    }
+  ],
+  "health": {
+    "oversize_warn": [],
+    "oversize_alert": [],
+    "broken_related": [],
+    "missing_frontmatter": []
+  }
+}
