@@ -1,0 +1,17 @@
+# Workflow
+
+1. Read **`docs/workflows/WORKFLOW.md`** for the current phase, gates, and `suggested_skills` menu.
+2. Pick **0..N skills** from the menu — skills are independent; never chain-invoke another skill.
+3. Edit workflow only via **`workflow-update`** (single edit path). Do not hand-edit phases ad hoc.
+4. Use **`variants`** (`trivial`, `fix`, `spike`) to skip ceremony on small tasks.
+
+## Luna Agent Kit vs native `/workflows` (Ultraplan)
+
+| Situation | Use |
+|-----------|-----|
+| Daily feature work, gated phases, user approval between steps | **Luna Agent Kit** (`WORKFLOW.md` + skills + hooks) |
+| 100+ file sweeps, mass migrations, 16+ parallel agents | **Native `/workflows`** |
+| Need local hooks, decision memory, plan↔commit tracing | **Luna Agent Kit** |
+| Cloud-synced orchestration acceptable | Either; Luna stays local-first |
+
+Complementary, not competing.

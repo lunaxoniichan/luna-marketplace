@@ -5,17 +5,17 @@ vibe-coding a consistent, gated workflow plus three pieces of project memory tha
 plugins don't provide: **corrections captured as native rules**, **plan↔commit traceability**, and **GitNexus
 index freshness**.
 
-> **Build status:** Phases 1–4 complete + v0.4.1 vibe-rules dedup — 39 skills, 8 agents, 10 hooks, 8 rules
-> (`.claude/rules/*.md`; Cursor also gets `luna.mdc` via `doc-init`),
-> `build-plans-registry.mjs` + `detect-modules.mjs`, and the `.cursor/` cross-tool layer.
-> See `docs/TOOLS_LIST.md` for the full inventory. Architecture layers: `docs/SYSTEM_DESIGN.md` §2–§4.
+> **Build status:** Phases 1–4 complete + v0.4.1 vibe-rules dedup + Luna Studio Phases 0–2 (in progress) —
+> 39 skills, 8 agents, 10 hooks. **Canonical rules** live in `rules/*.md`; Claude/Cursor views are
+> generated via `scripts/sync-agent-views.mjs` (do not hand-edit `.claude/rules/*.md` except `lessons.md`).
+> See `docs/TOOLS_LIST.md`. Architecture: `docs/SYSTEM_DESIGN.md` §2–§4.
 
 `CLAUDE.md` is a symlink to this file.
 
 ## Instruction priority (highest wins)
 
 1. **User explicit instructions** (direct chat)
-2. **Project rules** (`RULES.md`, `AGENTS.md`, `.claude/rules/`)
+2. **Project rules** (`RULES.md`, `AGENTS.md`, canonical `rules/*.md` → generated agent views)
 3. **Plugin skills** (`workflow-guide`, `vibe-rules`, `dev-*`, `review-*`, …)
 4. **Default model behavior**
 
@@ -44,6 +44,38 @@ Two doc classes — keep them separate:
 
 Design specs from brainstorming go in **`docs/specs/`** — never `docs/superpowers/` (that path leaks
 into published docs).
+
+### Doc lifecycle (PRE / OFFICIAL / POST)
+
+Every durable knowledge doc SHOULD carry unified front-matter (see `templates/docs/FRONTMATTER.md`):
+
+```yaml
+lifecycle: pre_official | official | post_official
+type: spec | plan | architecture | reference | decision | memory | component
+scope: user | project | session
+status: draft | active | done | superseded | deprecated
+```
+
+| Stage | Meaning | Folders |
+|-------|---------|---------|
+| **PRE_OFFICIAL** | Concept — not yet current truth | `docs/pre-official/research/`, `docs/pre-official/audits/` |
+| **OFFICIAL** | Current truth | `docs/` root architecture, `specs/`, `plans/`, `decisions/` |
+| **POST_OFFICIAL** | Archive — completed or superseded | `docs/post-official/completed-plans/`, `docs/post-official/legacy/` |
+
+Promote/demote is owned by `doc-update-project` / `doc-update-agent`. No mass migration — buckets + tag first.
+
+### Generators (Studio data layer)
+
+```bash
+node scripts/build-plugin-graph.mjs   # → docs/generated/plugin-graph.json + docs/PLUGIN_MAP.md
+node scripts/build-docs-index.mjs     # → docs/generated/docs-index.json + llms.txt + README catalog
+node scripts/build-knowledge.mjs      # → docs/generated/knowledge.json (gitignored; registry-wide)
+node scripts/register-project.mjs     # → ~/.claude/luna/registry.json
+npm run studio                        # Luna Studio host-first UI at :3900
+LUNA_STUDIO_FIXTURES=1 npm run studio # (+ fixtures for demos)
+```
+
+Indexes are rebuildable; markdown + git remain source of truth. `knowledge.json` is machine-specific and gitignored — Studio regenerates it on start.
 
 ## The three memory/traceability mechanisms (what makes this kit worth maintaining)
 
@@ -85,7 +117,12 @@ via commits:
   `docs/specs/`, `docs/PLANS.md`, `docs/TODO.md`, and `git log` (`Plan:` trailers).
 - **Skills:** same `SKILL.md` format; Cursor discovers them via `.cursor/skills` (symlink to `skills/`).
 - **Hooks:** same scripts; Claude `hooks/hooks.json`, Cursor `.cursor/hooks.json` (`beforeShellExecution`).
-- **Rules:** `.claude/rules/*.md` (Claude, auto-loaded) mirrored to `.cursor/rules/*.mdc` (Cursor).
+- **Rules (canonical → generated):** edit **`rules/*.md`** only. `npm run sync:agent-views` (or Studio
+  “Regenerate”) writes `.claude/rules/<name>.md` and `.cursor/rules/<name>.mdc` with a `luna:generated`
+  marker. **Never hand-edit generated rule files** (next sync overwrites or aborts on conflict).
+  Exceptions (agent-owned, never generated): `lessons.md` / `lessons.mdc`, `RULES.md`, `*.local.*`,
+  `luna.mdc`. Contract: `docs/specs/2026-07-18-sync-agent-views-contract.md`. Fleet model:
+  `docs/decisions/2026-07-18-fleet-rules-canonical.md`.
 - **Handoff:** set the `Owner` column in `PLANS.md` to the active tool; the receiving tool reads the
   self-contained plan, implements, commits with the `Plan:` trailer, updates the row.
 
@@ -118,7 +155,7 @@ exactly what, from where, and why.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **luna-marketplace** (65576 symbols, 78965 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **luna-marketplace** (65578 symbols, 78973 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

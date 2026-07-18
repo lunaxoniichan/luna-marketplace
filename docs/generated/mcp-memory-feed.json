@@ -1,0 +1,12 @@
+{
+  "_luna_generated": "scripts/sync-agent-views.mjs",
+  "schema_version": 1,
+  "project": "luna-marketplace",
+  "memories": [
+    {
+      "file": "memory/studio-host-first.md",
+      "title": "Studio runs host-first",
+      "summary": "# Studio runs host-first Luna Studio is host-first per `docs/decisions/2026-07-18-studio-host-first.md`. Do not assume d"
+    }
+  ]
+}
