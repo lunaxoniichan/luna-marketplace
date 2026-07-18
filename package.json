@@ -6,6 +6,7 @@
     "test:hooks": "node tests/hooks/hooks.test.js",
     "test:generators": "node tests/scripts/generators.test.js",
     "test:sync-agent-views": "node tests/scripts/sync-agent-views.test.mjs",
+    "test:fleet-sync": "node tests/scripts/fleet-sync.test.mjs",
     "test:vault-crud": "node tests/vault-crud/vault-crud.test.mjs",
     "test:vault-gateway": "node tests/studio/vault-gateway.test.mjs",
     "test:studio": "node tests/studio/studio.test.js",

@@ -7,7 +7,7 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   resolveVaultRoot,
   createFile,
@@ -17,6 +17,7 @@ import {
   assertAllowedPath,
   fileContentSha,
   listWikilinkTargets,
+  listAllowedVaults,
   ALLOWED_PREFIXES,
 } from './vault-crud.mjs';
 import { parseFrontmatter } from './frontmatter.mjs';
@@ -41,9 +42,9 @@ const CRUD_KEYS = new Set([
   'planTrailer',
 ]);
 
-const SYNC_KEYS = new Set(['vaultId', 'planToken']);
-const SYNC_MANY_KEYS = new Set(['vaultIds']);
-const SYNC_APPLY_MANY_KEYS = new Set(['targets']); // [{ vaultId, planToken }]
+const SYNC_KEYS = new Set(['vaultId', 'planToken', 'mode', 'adoptUnmarked']);
+const SYNC_MANY_KEYS = new Set(['vaultIds', 'mode', 'adoptUnmarked']);
+const SYNC_APPLY_MANY_KEYS = new Set(['targets', 'mode', 'adoptUnmarked']); // [{ vaultId, planToken }]
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -138,6 +139,26 @@ function openVault(vaultId, opts = {}) {
     pluginRoot: opts.pluginRoot ?? pluginRoot(),
     registry: opts.registry,
   });
+}
+
+/**
+ * Sync options for local vs fleet mode.
+ * Fleet MUST re-derive from pluginRoot/rules (same source as preview) — TOCTOU pin.
+ */
+export function syncOptsForVault(vault, input = {}, ctx = {}) {
+  const mode = input.mode === 'fleet' ? 'fleet' : 'local';
+  const adoptUnmarked = Boolean(input.adoptUnmarked);
+  if (mode === 'fleet') {
+    const plugin = resolve(ctx.pluginRoot ?? pluginRoot());
+    return {
+      mode,
+      rulesSourceDir: join(plugin, 'rules'),
+      memorySourceDir: join(vault.root, 'memory'),
+      origin: 'plugin',
+      adoptUnmarked,
+    };
+  }
+  return { mode, adoptUnmarked };
 }
 
 function sha256Text(text) {
@@ -431,16 +452,22 @@ export function vaultSyncPreview(input, ctx = {}) {
   if (bad) return { ok: false, error: bad };
   try {
     const vault = openVault(String(input.vaultId), ctx);
-    const result = syncAgentViews(vault.root, { dryRun: true });
-    return { ok: true, vaultId: String(input.vaultId), ...toSyncPreview(result) };
+    const syncOpts = syncOptsForVault(vault, input, ctx);
+    const result = syncAgentViews(vault.root, { dryRun: true, ...syncOpts });
+    return {
+      ok: true,
+      vaultId: String(input.vaultId),
+      mode: syncOpts.mode,
+      ...toSyncPreview(result),
+    };
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }
 }
 
 /**
- * Fleet-shaped preview: one dry-run per vaultId (T5 UI target list).
- * Does not yet rewrite sources from plugin rules/ — that is sync --all follow-up.
+ * Fleet-shaped preview: one dry-run per vaultId.
+ * mode:'fleet' re-derives each target from plugin rules/ (not the target's rules/).
  */
 export function vaultSyncPreviewMany(input, ctx = {}) {
   const g = gate(input, SYNC_MANY_KEYS, ctx);
@@ -454,10 +481,13 @@ export function vaultSyncPreviewMany(input, ctx = {}) {
   }
   const results = [];
   for (const id of ids) {
-    const one = vaultSyncPreview({ vaultId: id }, ctx);
+    const one = vaultSyncPreview(
+      { vaultId: id, mode: input.mode, adoptUnmarked: input.adoptUnmarked },
+      ctx,
+    );
     results.push(one.ok ? one : { ok: false, vaultId: id, error: one.error });
   }
-  return { ok: true, results };
+  return { ok: true, mode: input.mode === 'fleet' ? 'fleet' : 'local', results };
 }
 
 export function vaultSyncApply(input, ctx = {}) {
@@ -475,7 +505,9 @@ export function vaultSyncApply(input, ctx = {}) {
   return withVaultLock(vaultId, () => {
     try {
       const vault = openVault(vaultId, ctx);
-      const dry = syncAgentViews(vault.root, { dryRun: true });
+      // Source-aware re-derivation (must match preview mode/rulesSourceDir)
+      const syncOpts = syncOptsForVault(vault, input, ctx);
+      const dry = syncAgentViews(vault.root, { dryRun: true, ...syncOpts });
       const preview = toSyncPreview(dry);
 
       if (preview.planToken !== input.planToken) {
@@ -499,7 +531,7 @@ export function vaultSyncApply(input, ctx = {}) {
         };
       }
 
-      const applied = syncAgentViews(vault.root, { dryRun: false });
+      const applied = syncAgentViews(vault.root, { dryRun: false, ...syncOpts });
       if (applied.status === 'conflict') {
         return {
           ok: false,
@@ -510,7 +542,13 @@ export function vaultSyncApply(input, ctx = {}) {
         };
       }
 
-      return { ok: true, vaultId, ...summarizeSyncResult(applied) };
+      return {
+        ok: true,
+        vaultId,
+        mode: syncOpts.mode,
+        changedPaths: applied.changedPaths || [],
+        ...summarizeSyncResult(applied),
+      };
     } catch (e) {
       return { ok: false, error: normalizeError(e) };
     }
@@ -528,36 +566,36 @@ export function vaultSyncApplyMany(input, ctx = {}) {
   const results = [];
   for (const t of targets) {
     const one = vaultSyncApply(
-      { vaultId: t.vaultId, planToken: t.planToken },
+      {
+        vaultId: t.vaultId,
+        planToken: t.planToken,
+        mode: input.mode,
+        adoptUnmarked: input.adoptUnmarked,
+      },
       ctx,
     );
     results.push({ vaultId: t.vaultId, ...one });
   }
   const allOk = results.every((r) => r.ok);
-  return { ok: allOk, results };
+  return { ok: allOk, mode: input.mode === 'fleet' ? 'fleet' : 'local', results };
 }
 
-/** Registry + plugin ids for fleet target picker (server-rendered). */
+/** Registry + plugin ids for fleet target picker (server-rendered). Realpath wall. */
 export function listSyncTargets(ctx = {}) {
   const ctxErr = assertCtxAllowed(ctx);
   if (ctxErr) return { ok: false, error: ctxErr };
-  const plugin = pluginRoot();
-  const ids = new Map();
-  ids.set(basename(plugin), {
-    id: basename(plugin),
-    source: 'plugin',
-    pathLabel: '<plugin>',
-  });
   try {
-    const reg = ctx.registry || loadRegistry();
-    for (const p of reg.projects || []) {
-      if (!p?.id || !p?.path || !existsSync(p.path)) continue;
-      if (!ids.has(p.id)) {
-        ids.set(p.id, { id: p.id, source: 'registry', pathLabel: '<registry>' });
-      }
-    }
-  } catch {
-    /* ignore */
+    const allowed = listAllowedVaults({
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry || loadRegistry(),
+    });
+    const targets = allowed.map((t) => ({
+      id: t.id,
+      source: t.source,
+      pathLabel: t.source === 'plugin' ? '<plugin>' : '<registry>',
+    }));
+    return { ok: true, targets };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
   }
-  return { ok: true, targets: [...ids.values()].sort((a, b) => a.id.localeCompare(b.id)) };
 }

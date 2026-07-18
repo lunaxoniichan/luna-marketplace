@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-18T15:14:50.316Z",
+  "generated_at": "2026-07-18T22:57:22.469Z",
   "root": "luna-marketplace",
   "counts": {
-    "docs": 33,
+    "docs": 34,
     "pre_official": 3,
-    "official": 26,
+    "official": 27,
     "post_official": 4
   },
   "docs": [
@@ -78,7 +78,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": null,
-      "lines": 90,
+      "lines": 91,
       "has_frontmatter": false
     },
     {
@@ -292,7 +292,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": "2026-07-18",
-      "lines": 50,
+      "lines": 49,
       "has_frontmatter": true
     },
     {
@@ -573,6 +573,33 @@
       "has_frontmatter": true
     },
     {
+      "path": "docs/specs/2026-07-19-fleet-sync-contract.md",
+      "slug": "2026-07-19-fleet-sync-contract",
+      "title": "Fleet sync — plugin rules/ → all registry projects",
+      "scope": "project",
+      "type": "spec",
+      "lifecycle": "official",
+      "status": "active",
+      "keywords": [
+        "fleet",
+        "sync-agent-views",
+        "rules",
+        "registry",
+        "T5"
+      ],
+      "related": [
+        "docs/decisions/2026-07-18-fleet-rules-canonical.md",
+        "docs/specs/2026-07-18-sync-agent-views-contract.md",
+        "docs/specs/2026-07-18-studio-server-actions-contract.md"
+      ],
+      "wikilinks": [],
+      "supersedes": null,
+      "superseded_by": null,
+      "updated": "2026-07-19",
+      "lines": 307,
+      "has_frontmatter": true
+    },
+    {
       "path": "docs/specs/code-intelligence-tools-comparison.md",
       "slug": "code-intelligence-tools-comparison",
       "title": "GitNexus vs codebase-memory-mcp vs CodeGraph",
@@ -659,6 +686,10 @@
       {
         "path": "docs/SYSTEM_DESIGN.md",
         "lines": 304
+      },
+      {
+        "path": "docs/specs/2026-07-19-fleet-sync-contract.md",
+        "lines": 307
       },
       {
         "path": "docs/specs/code-intelligence-tools-comparison.md",

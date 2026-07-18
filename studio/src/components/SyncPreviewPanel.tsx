@@ -33,35 +33,42 @@ export function SyncPreviewPanel({
   }, [fleetTargets, vaultId]);
 
   const [selected, setSelected] = useState<string[]>([vaultId]);
+  const [mode, setMode] = useState<"fleet" | "local">("fleet");
   const [previews, setPreviews] = useState<PreviewRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [stale, setStale] = useState(false);
 
   const toggle = (id: string) => {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   };
 
-  const selectFleet = () => setSelected(allIds);
+  const selectFleet = () => {
+    setSelected(allIds);
+    setMode("fleet");
+  };
   const selectCurrent = () => setSelected([vaultId]);
 
   const runPreview = () => {
     setErr(null);
     setMsg(null);
+    setStale(false);
     startTransition(async () => {
-      const r = await vaultSyncPreviewMany({ vaultIds: selected });
+      const r = await vaultSyncPreviewMany({ vaultIds: selected, mode });
       if (!r.ok) {
         setErr((r as { error: { message: string } }).error?.message || "preview failed");
         return;
       }
       setPreviews(((r as { results: PreviewRow[] }).results || []) as PreviewRow[]);
-      setMsg(`Previewed ${selected.length} target(s)`);
+      setMsg(`Previewed ${selected.length} target(s) · mode=${mode}`);
     });
   };
 
   const runApply = () => {
     setErr(null);
     setMsg(null);
+    setStale(false);
     const targets = previews
       .filter((p) => p.ok && p.planToken && p.vaultId)
       .filter((p) => p.status !== "conflict" && !(p.conflicts && p.conflicts.length))
@@ -71,18 +78,35 @@ export function SyncPreviewPanel({
       return;
     }
     startTransition(async () => {
-      const r = await vaultSyncApplyMany({ targets });
-      const results = (r as { results?: Array<{ vaultId: string; ok: boolean; error?: { message: string }; message?: string }> })
-        .results || [];
+      const r = await vaultSyncApplyMany({ targets, mode });
+      const results =
+        (
+          r as {
+            results?: Array<{
+              vaultId: string;
+              ok: boolean;
+              error?: { code?: string; message: string };
+              message?: string;
+            }>;
+          }
+        ).results || [];
       const fails = results.filter((x) => !x.ok);
+      const staleFails = fails.filter((f) => f.error?.code === "PLAN_STALE");
+      if (staleFails.length) {
+        setStale(true);
+        setErr(
+          `Preview stale for ${staleFails.map((f) => f.vaultId).join(", ")} — working tree changed. Re-preview, then apply again.`,
+        );
+        setPreviews([]);
+        return;
+      }
       if (fails.length) {
         setErr(fails.map((f) => `${f.vaultId}: ${f.error?.message || "failed"}`).join(" · "));
       }
       setMsg(
-        `Applied ${results.filter((x) => x.ok).length}/${results.length} — conflicts never clobber`,
+        `Applied ${results.filter((x) => x.ok).length}/${results.length} · mode=${mode} — conflicts never clobber`,
       );
-      // refresh preview
-      const again = await vaultSyncPreviewMany({ vaultIds: selected });
+      const again = await vaultSyncPreviewMany({ vaultIds: selected, mode });
       if (again.ok) setPreviews(((again as { results: PreviewRow[] }).results || []) as PreviewRow[]);
     });
   };
@@ -90,10 +114,11 @@ export function SyncPreviewPanel({
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Dry-run → review → apply. Shaped for <strong className="text-slate-300">fleet</strong>{" "}
-        (multi-target). Plugin <code>rules/</code> → every registry project is T5 (
-        <code>sync --all</code>); today each selected vault still syncs from its own{" "}
-        <code>rules/</code>.
+        Dry-run → review → apply.{" "}
+        <strong className="text-slate-300">Fleet mode</strong> regenerates from plugin{" "}
+        <code>rules/</code> into each target&apos;s <code>.claude</code> / <code>.cursor</code>.{" "}
+        Local mode uses each vault&apos;s own <code>rules/</code> (dogfood/CI). Writes leave
+        targets dirty unless you commit in each repo (CLI <code>--commit</code>).
       </p>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -103,6 +128,20 @@ export function SyncPreviewPanel({
         <button type="button" className="rounded border border-slate-600 px-2 py-1" onClick={selectFleet}>
           All targets (fleet list)
         </button>
+        <label className="ml-2 flex items-center gap-2 rounded border border-slate-700 px-2 py-1">
+          <span className="text-slate-400">Mode</span>
+          <select
+            className="rounded border border-slate-600 bg-slate-950 px-1 py-0.5 text-slate-200"
+            value={mode}
+            onChange={(e) => {
+              setMode(e.target.value as "fleet" | "local");
+              setPreviews([]);
+            }}
+          >
+            <option value="fleet">fleet (plugin rules/)</option>
+            <option value="local">local (per-vault rules/)</option>
+          </select>
+        </label>
       </div>
 
       <ul className="grid gap-1 sm:grid-cols-2 text-sm">
@@ -145,6 +184,16 @@ export function SyncPreviewPanel({
 
       {msg && <p className="text-sm text-emerald-300">{msg}</p>}
       {err && <p className="text-sm text-red-300">{err}</p>}
+      {stale && (
+        <button
+          type="button"
+          className="rounded border border-amber-700 bg-amber-950/40 px-3 py-2 text-sm text-amber-200"
+          onClick={runPreview}
+          disabled={pending || !selected.length}
+        >
+          Re-preview now (required after PLAN_STALE)
+        </button>
+      )}
 
       <div className="space-y-3">
         {previews.map((p) => (

@@ -9,6 +9,7 @@ import {
   readFileSync,
   existsSync,
   rmSync,
+  readdirSync,
 } from 'node:fs';
 import { join, dirname as pathDirname } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
@@ -145,6 +146,157 @@ try {
   assert(existsSync(claudeRule), 'orphan file left on disk (warn-only)');
 } finally {
   rmSync(dir, { recursive: true, force: true });
+}
+
+// Phase 1 — buildPlan(writeRoot, { rulesSourceDir, memorySourceDir }) decoupling
+console.log('\nsync-agent-views buildPlan source/write split');
+{
+  const plugin = mkdtempSync(join(tmpdir(), 'luna-plugin-'));
+  const consumer = mkdtempSync(join(tmpdir(), 'luna-consumer-'));
+  try {
+    mkdirSync(join(plugin, 'rules'), { recursive: true });
+    mkdirSync(join(consumer, 'memory'), { recursive: true });
+    writeFileSync(join(plugin, 'rules', 'fleet.md'), '# Fleet\n\nshared body\n');
+    writeFileSync(
+      join(consumer, 'memory', 'local.md'),
+      '---\ntitle: Local\ntype: memory\n---\n\nconsumer memory\n'
+    );
+    // Consumer has NO rules/ — fleet must still plan writes under consumer
+    const plan = buildPlan(consumer, {
+      rulesSourceDir: join(plugin, 'rules'),
+      memorySourceDir: join(consumer, 'memory'),
+    });
+    assert(
+      plan.writes.some(
+        (w) =>
+          w.kind === 'claude-rule' &&
+          w.path === join(consumer, '.claude', 'rules', 'fleet.md') &&
+          w.desired.includes('shared body')
+      ),
+      'claude write under consumer from plugin rules'
+    );
+    assert(
+      plan.writes.some(
+        (w) =>
+          w.kind === 'cursor-rule' &&
+          w.path === join(consumer, '.cursor', 'rules', 'fleet.mdc')
+      ),
+      'cursor write under consumer from plugin rules'
+    );
+    assert(
+      plan.writes.some(
+        (w) =>
+          w.kind === 'mcp-feed' &&
+          w.path === join(consumer, 'docs', 'generated', 'mcp-memory-feed.json') &&
+          w.desired.includes('Local')
+      ),
+      'mcp feed from consumer memory only'
+    );
+    assert(
+      !plan.writes.some((w) => w.path.startsWith(plugin)),
+      'no writes into plugin tree'
+    );
+
+    // Defaults preserved: bare buildPlan(root) still reads root/rules + root/memory
+    mkdirSync(join(consumer, 'rules'), { recursive: true });
+    writeFileSync(join(consumer, 'rules', 'local-only.md'), '# Local only\n');
+    const localPlan = buildPlan(consumer);
+    assert(
+      localPlan.writes.some((w) => w.path.endsWith('local-only.md')),
+      'default buildPlan still uses writeRoot/rules'
+    );
+    assert(
+      !localPlan.writes.some((w) => w.path.endsWith('fleet.md')),
+      'default buildPlan ignores sibling plugin rules'
+    );
+  } finally {
+    rmSync(plugin, { recursive: true, force: true });
+    rmSync(consumer, { recursive: true, force: true });
+  }
+}
+
+// Phase 2 — adopt-unmarked migration (§4.1)
+console.log('\nsync-agent-views adopt-unmarked migration');
+{
+  const plugin = mkdtempSync(join(tmpdir(), 'luna-plugin-mig-'));
+  const consumer = mkdtempSync(join(tmpdir(), 'luna-consumer-mig-'));
+  try {
+    mkdirSync(join(plugin, 'rules'), { recursive: true });
+    mkdirSync(join(consumer, '.claude', 'rules'), { recursive: true });
+    mkdirSync(join(consumer, '.cursor', 'rules'), { recursive: true });
+    mkdirSync(join(consumer, 'memory'), { recursive: true });
+    writeFileSync(join(plugin, 'rules', 'core.md'), '# Core\n\nfleet body\n');
+    // Pre-existing unmarked (old doc-init mirror)
+    writeFileSync(join(consumer, '.claude', 'rules', 'core.md'), '# Core\n\nold hand mirror\n');
+    writeFileSync(join(consumer, '.cursor', 'rules', 'core.mdc'), '---\ndescription: old\n---\n\nold cursor\n');
+    writeFileSync(join(consumer, '.claude', 'rules', 'lessons.md'), '# Lessons\n- keep\n');
+    writeFileSync(join(consumer, '.claude', 'rules', 'mine.local.md'), 'local only\n');
+
+    const syncOpts = {
+      rulesSourceDir: join(plugin, 'rules'),
+      memorySourceDir: join(consumer, 'memory'),
+      origin: 'plugin',
+    };
+
+    // 1. Default → conflict; no aside created
+    let r = syncAgentViews(consumer, syncOpts);
+    assert(r.exitCode === 2, `default unmarked → conflict (got ${r.exitCode})`);
+    assert(r.message.includes('hand-authored'), 'hand-authored reason without adopt');
+    const asideGlob = readdirSync(join(consumer, '.claude', 'rules')).filter((f) =>
+      f.includes('pre-fleet')
+    );
+    assert(asideGlob.length === 0, 'no aside without --adopt-unmarked');
+    assert(
+      readFileSync(join(consumer, '.claude', 'rules', 'core.md'), 'utf8').includes('old hand mirror'),
+      'unmarked file left intact on conflict'
+    );
+
+    // 2. --adopt-unmarked → aside + write + origin plugin; protected intact
+    r = syncAgentViews(consumer, { ...syncOpts, adoptUnmarked: true });
+    assert(r.exitCode === 0, `adopt-unmarked ok (${r.message})`);
+    const claudeAside = readdirSync(join(consumer, '.claude', 'rules')).find((f) =>
+      /^core\.md\.pre-fleet-\d{8}$/.test(f)
+    );
+    assert(claudeAside, `aside named core.md.pre-fleet-DATE (got ${claudeAside})`);
+    assert(
+      Boolean(claudeAside) && !claudeAside.endsWith('.md'),
+      'aside not auto-loadable as *.md'
+    );
+    assert(
+      readFileSync(join(consumer, '.claude', 'rules', claudeAside), 'utf8').includes('old hand mirror'),
+      'aside preserves old content'
+    );
+    assert(
+      hasGeneratedMarker(readFileSync(join(consumer, '.claude', 'rules', 'core.md'), 'utf8')),
+      'new claude rule marked'
+    );
+    assert(
+      readFileSync(join(consumer, '.claude', 'rules', 'core.md'), 'utf8').includes('fleet body'),
+      'new claude rule from plugin'
+    );
+    assert(
+      readFileSync(join(consumer, '.claude', 'rules', 'lessons.md'), 'utf8').includes('keep'),
+      'lessons untouched'
+    );
+    assert(
+      readFileSync(join(consumer, '.claude', 'rules', 'mine.local.md'), 'utf8').includes('local only'),
+      '*.local untouched'
+    );
+    const man = JSON.parse(
+      readFileSync(join(consumer, '.luna', 'agent-views-manifest.json'), 'utf8')
+    );
+    const claudeEntry = man.targets[join(consumer, '.claude', 'rules', 'core.md')];
+    assert(claudeEntry?.origin === 'plugin', `manifest origin plugin (got ${claudeEntry?.origin})`);
+
+    // 3. Idempotent second run without adopt
+    r = syncAgentViews(consumer, { ...syncOpts, check: true });
+    assert(r.exitCode === 0, `second check green after migrate (${r.message})`);
+    r = syncAgentViews(consumer, syncOpts);
+    assert(r.exitCode === 0 && r.classified.write.length === 0, 'second apply noop');
+  } finally {
+    rmSync(plugin, { recursive: true, force: true });
+    rmSync(consumer, { recursive: true, force: true });
+  }
 }
 
 if (failed) {

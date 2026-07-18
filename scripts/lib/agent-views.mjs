@@ -113,11 +113,17 @@ export function renderCursorRule(name, sourceBody) {
 
 /**
  * Build sync plan. Native Claude memory is NOT a write target (agent-owned).
+ *
+ * @param {string} writeRoot — project root where .claude / .cursor / mcp-feed are written
+ * @param {object} [opts]
+ * @param {string} [opts.rulesSourceDir] — defaults to writeRoot/rules
+ * @param {string} [opts.memorySourceDir] — defaults to writeRoot/memory
  */
-export function buildPlan(projectRoot) {
-  const root = resolve(projectRoot);
-  const rulesDir = join(root, 'rules');
-  const memoryDir = join(root, 'memory');
+export function buildPlan(writeRoot, opts = {}) {
+  const root = resolve(writeRoot);
+  const rulesDir = resolve(opts.rulesSourceDir ?? join(root, 'rules'));
+  const memoryDir = resolve(opts.memorySourceDir ?? join(root, 'memory'));
+  const rulesSourceBase = resolve(rulesDir, '..');
   const writes = [];
   const skipped = [];
   const plannedPaths = new Set();
@@ -129,16 +135,17 @@ export function buildPlan(projectRoot) {
 
     const claudePath = join(root, '.claude', 'rules', file);
     const cursorPath = join(root, '.cursor', 'rules', `${name}.mdc`);
+    const sourceRel = relative(rulesSourceBase, sourcePath);
 
     writes.push({
       path: claudePath,
-      source: relative(root, sourcePath),
+      source: sourceRel,
       desired: renderClaudeRule(body),
       kind: 'claude-rule',
     });
     writes.push({
       path: cursorPath,
-      source: relative(root, sourcePath),
+      source: sourceRel,
       desired: renderCursorRule(name, body),
       kind: 'cursor-rule',
     });
@@ -183,7 +190,7 @@ export function buildPlan(projectRoot) {
   });
   plannedPaths.add(feedPath);
 
-  return { root, writes, skipped, plannedPaths };
+  return { root, writes, skipped, plannedPaths, rulesSourceDir: rulesDir, memorySourceDir: memoryDir };
 }
 
 /**
@@ -225,13 +232,18 @@ function unifiedDiff(path, current, desired) {
  * Classify planned writes.
  * - marked + no manifest → adopt + regenerate (fresh clone / CI)
  * - marked + manifest hash mismatch → abort (local edit)
- * - unmarked → abort (hand-authored)
+ * - unmarked → abort (hand-authored), unless adoptUnmarked → migrate (move-aside + write)
+ *
+ * @param {object} plan
+ * @param {object} manifest
+ * @param {{ adoptUnmarked?: boolean }} [opts]
  */
-export function classifyPlan(plan, manifest) {
+export function classifyPlan(plan, manifest, opts = {}) {
   const noop = [];
   const write = [];
   const conflicts = [];
   const adopts = [];
+  const migrates = [];
 
   for (const item of plan.writes) {
     if (isProtectedName(item.path)) {
@@ -255,6 +267,12 @@ export function classifyPlan(plan, manifest) {
     const currentHash = sha256(current);
 
     if (!marked) {
+      if (opts.adoptUnmarked) {
+        const migrateItem = { ...item, migrate: true, priorContent: current };
+        write.push(migrateItem);
+        migrates.push(item.path);
+        continue;
+      }
       conflicts.push({
         path: item.path,
         reason: 'hand-authored-no-marker',
@@ -284,7 +302,27 @@ export function classifyPlan(plan, manifest) {
     });
   }
 
-  return { noop, write, conflicts, adopts };
+  return { noop, write, conflicts, adopts, migrates };
+}
+
+/** Aside path: suffix AFTER extension so agents do not auto-load (core.md.pre-fleet-YYYYMMDD). */
+export function preFleetAsidePath(targetPath, date = new Date()) {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  const stamp = `${y}${m}${d}`;
+  let candidate = `${targetPath}.pre-fleet-${stamp}`;
+  if (!existsSync(candidate)) return candidate;
+  let n = 2;
+  while (existsSync(`${candidate}.${n}`)) n++;
+  return `${candidate}.${n}`;
+}
+
+export function moveAsideForMigration(targetPath) {
+  const aside = preFleetAsidePath(targetPath);
+  mkdirSync(dirname(aside), { recursive: true });
+  renameSync(targetPath, aside);
+  return aside;
 }
 
 export function formatConflicts(conflicts) {
@@ -299,30 +337,42 @@ export function formatConflicts(conflicts) {
     .join('\n\n');
 }
 
-export function applyWrites(projectRoot, items, manifest) {
+export function applyWrites(projectRoot, items, manifest, opts = {}) {
   const targets = { ...(manifest.targets || {}) };
+  const origin = opts.origin ?? 'project';
+  const asides = [];
   for (const item of items) {
+    if (item.migrate && existsSync(item.path)) {
+      asides.push({ from: item.path, to: moveAsideForMigration(item.path) });
+    }
     mkdirSync(dirname(item.path), { recursive: true });
     writeFileSync(item.path, item.desired, 'utf8');
     targets[item.path] = {
       sha256: sha256(item.desired),
       source: item.source,
       kind: item.kind,
+      origin,
       updated: new Date().toISOString(),
     };
   }
   // Drop orphan entries from manifest when their source is gone (keep file warn-only)
   const planned = new Set(items.map((i) => i.path));
   // Also keep entries for noop paths still in plan — caller merges after full classify
-  return { targets, planned };
+  return { targets, planned, asides };
 }
 
 export function syncAgentViews(projectRoot, opts = {}) {
   const root = resolve(projectRoot);
-  const plan = buildPlan(root);
+  const plan = buildPlan(root, {
+    rulesSourceDir: opts.rulesSourceDir,
+    memorySourceDir: opts.memorySourceDir,
+  });
   const manifest = loadManifest(root);
-  const classified = classifyPlan(plan, manifest);
+  const classified = classifyPlan(plan, manifest, {
+    adoptUnmarked: opts.adoptUnmarked,
+  });
   const orphans = findOrphans(plan, manifest);
+  const origin = opts.origin ?? 'project';
 
   if (classified.conflicts.length) {
     return {
@@ -340,6 +390,9 @@ export function syncAgentViews(projectRoot, opts = {}) {
     const adoptNote = classified.adopts?.length
       ? `; would adopt ${classified.adopts.length} marked-no-manifest`
       : '';
+    const migrateNote = classified.migrates?.length
+      ? `; would migrate ${classified.migrates.length} unmarked`
+      : '';
     const orphanNote = orphans.length ? `; orphans=${orphans.length}` : '';
     return {
       status: dirty ? 'check-dirty' : 'ok',
@@ -348,15 +401,19 @@ export function syncAgentViews(projectRoot, opts = {}) {
       classified,
       orphans,
       message: dirty
-        ? `would write ${classified.write.length} file(s); noop=${classified.noop.length}${adoptNote}${orphanNote}`
+        ? `would write ${classified.write.length} file(s); noop=${classified.noop.length}${adoptNote}${migrateNote}${orphanNote}`
         : `up to date (noop=${classified.noop.length})${orphanNote}`,
     };
   }
 
   // Persist full plan paths in manifest (writes + noops that still exist)
   const targets = { ...(manifest.targets || {}) };
+  const asides = [];
   for (const item of [...classified.write, ...classified.noop]) {
     if (classified.write.includes(item)) {
+      if (item.migrate && existsSync(item.path)) {
+        asides.push({ from: item.path, to: moveAsideForMigration(item.path) });
+      }
       mkdirSync(dirname(item.path), { recursive: true });
       writeFileSync(item.path, item.desired, 'utf8');
     }
@@ -364,6 +421,7 @@ export function syncAgentViews(projectRoot, opts = {}) {
       sha256: sha256(item.desired),
       source: item.source,
       kind: item.kind,
+      origin,
       updated: new Date().toISOString(),
     };
   }
@@ -376,6 +434,9 @@ export function syncAgentViews(projectRoot, opts = {}) {
   const adoptNote = classified.adopts?.length
     ? `; adopted ${classified.adopts.length} marked-no-manifest`
     : '';
+  const migrateNote = classified.migrates?.length
+    ? `; migrated ${classified.migrates.length} unmarked`
+    : '';
   const orphanNote = orphans.length
     ? `; WARN ${orphans.length} orphan(s) (canonical deleted — generated copy left on disk)`
     : '';
@@ -386,6 +447,8 @@ export function syncAgentViews(projectRoot, opts = {}) {
     plan,
     classified,
     orphans,
-    message: `wrote ${classified.write.length}; noop ${classified.noop.length}${adoptNote}${orphanNote}`,
+    asides,
+    changedPaths: classified.write.map((w) => w.path),
+    message: `wrote ${classified.write.length}; noop ${classified.noop.length}${adoptNote}${migrateNote}${orphanNote}`,
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   vaultCreate,
@@ -42,6 +43,16 @@ export function VaultWorkspace({
   vaultId: string;
   fleetTargets: Array<{ id: string; source: string }>;
 }) {
+  const pluginVaultId = useMemo(
+    () => fleetTargets.find((t) => t.source === "plugin")?.id ?? null,
+    [fleetTargets],
+  );
+  const isPluginVault = useMemo(() => {
+    const self = fleetTargets.find((t) => t.id === vaultId);
+    return self?.source === "plugin" || (pluginVaultId != null && vaultId === pluginVaultId);
+  }, [fleetTargets, vaultId, pluginVaultId]);
+  const rulesReadOnly = !isPluginVault;
+
   const [tab, setTab] = useState<"memory" | "rules" | "docs" | "sync">("memory");
   const [lists, setLists] = useState<{ rules: string[]; memory: string[]; docs: string[] }>({
     rules: [],
@@ -119,6 +130,10 @@ export function VaultWorkspace({
   };
 
   const startCreate = () => {
+    if (tab === "rules" && rulesReadOnly) {
+      setErr("Fleet-managed rules are edited on the plugin vault");
+      return;
+    }
     setCreating(true);
     setSelected(null);
     setConfirmSha(null);
@@ -141,6 +156,10 @@ export function VaultWorkspace({
   }, [wikiQ, wikis]);
 
   const save = () => {
+    if (tab === "rules" && rulesReadOnly) {
+      setErr("Fleet-managed rules are edited on the plugin vault — use Sync to regenerate views");
+      return;
+    }
     setErr(null);
     setMsg(null);
     startTransition(async () => {
@@ -245,7 +264,39 @@ export function VaultWorkspace({
         <p className="rounded border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
           <strong className="text-slate-300">Canonical memory</strong> (`memory/*.md`) feeds MCP +
           Studio. It does <em>not</em> change Claude&apos;s native session store (
-          <code>~/.claude/projects/…/memory</code>).
+          <code>~/.claude/projects/…/memory</code>). Memory CRUD works on every vault — including
+          consumers.
+        </p>
+      )}
+
+      {tab === "rules" && rulesReadOnly && (
+        <p className="rounded border border-amber-900/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+          Managed by plugin <code>rules/</code> · edit there · Regenerate via Sync.
+          {pluginVaultId ? (
+            <>
+              {" "}
+              <Link
+                href={`/project/${pluginVaultId}`}
+                className="font-medium text-emerald-300 underline underline-offset-2"
+              >
+                Open plugin Rules tab
+              </Link>
+            </>
+          ) : null}{" "}
+          Memory and Docs on this vault remain fully editable.
+        </p>
+      )}
+
+      {tab === "rules" && isPluginVault && (
+        <p className="rounded border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+          This vault is the <strong className="text-slate-300">fleet source</strong>. Edit here, then
+          Sync (fleet mode) to push generated views to registered projects.
+        </p>
+      )}
+
+      {tab === "docs" && (
+        <p className="rounded border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+          Project docs CRUD is always available — fleet read-only applies only to shared rule names.
         </p>
       )}
 
@@ -256,9 +307,9 @@ export function VaultWorkspace({
           <div className="space-y-2">
             <button
               type="button"
-              className="w-full rounded border border-slate-600 px-2 py-1 text-sm text-slate-300"
+              className="w-full rounded border border-slate-600 px-2 py-1 text-sm text-slate-300 disabled:opacity-40"
               onClick={startCreate}
-              disabled={pending}
+              disabled={pending || (tab === "rules" && rulesReadOnly)}
             >
               + New
             </button>
@@ -319,9 +370,10 @@ export function VaultWorkspace({
                 <label className="block text-sm">
                   <span className="text-slate-400">Body</span>
                   <textarea
-                    className="mt-1 min-h-48 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm"
+                    className="mt-1 min-h-48 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm disabled:opacity-60"
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
+                    readOnly={tab === "rules" && rulesReadOnly}
                   />
                 </label>
 
@@ -353,11 +405,11 @@ export function VaultWorkspace({
                     type="button"
                     className="rounded bg-emerald-800 px-3 py-1 text-sm text-emerald-100 disabled:opacity-50"
                     onClick={save}
-                    disabled={pending}
+                    disabled={pending || (tab === "rules" && rulesReadOnly)}
                   >
                     {creating ? "Create + commit" : "Save + commit"}
                   </button>
-                  {!creating && selected && (
+                  {!creating && selected && !(tab === "rules" && rulesReadOnly) && (
                     <button
                       type="button"
                       className="rounded border border-red-900 px-3 py-1 text-sm text-red-300 disabled:opacity-50"

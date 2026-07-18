@@ -11,6 +11,8 @@ import {
   vaultCreate,
   vaultSyncPreview,
   vaultSyncApply,
+  vaultSyncPreviewMany,
+  vaultSyncApplyMany,
   assertVaultId,
   assertBodySize,
   assertCtxAllowed,
@@ -208,6 +210,119 @@ test('vaultSyncApply happy path after conflict cleared', () => {
     readFileSync(join(root, '.claude/rules/gateway-rule.md'), 'utf8'),
     /luna:generated/,
   );
+});
+
+test('fleet mode: token binds plugin source — plugin change → PLAN_STALE', () => {
+  const consumer = mkdtempSync(join(tmpdir(), 'vault-gw-consumer-'));
+  try {
+    execFileSync('git', ['init'], { cwd: consumer, encoding: 'utf8' });
+    execFileSync('git', ['config', 'user.email', 't@t'], { cwd: consumer });
+    execFileSync('git', ['config', 'user.name', 't'], { cwd: consumer });
+    mkdirSync(join(consumer, 'memory'), { recursive: true });
+    writeFileSync(join(consumer, 'README.md'), '# c\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: consumer });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: consumer });
+
+    const fleetCtx = {
+      pluginRoot: root,
+      registry: {
+        version: 1,
+        projects: [
+          { id: 'gw-proj', path: root },
+          { id: 'gw-consumer', path: consumer },
+        ],
+      },
+    };
+
+    // Consumer has empty rules/ — fleet preview must use plugin rules
+    writeFileSync(join(root, 'rules/fleet-shared.md'), '# Fleet shared\n\nbody-v1\n');
+    const preview = vaultSyncPreview(
+      { vaultId: 'gw-consumer', mode: 'fleet' },
+      fleetCtx,
+    );
+    assert.equal(preview.ok, true, JSON.stringify(preview.error));
+    assert.equal(preview.mode, 'fleet');
+    assert.ok(
+      preview.writes.some((w) => w.path.endsWith('fleet-shared.md') || w.path.endsWith('fleet-shared.mdc')),
+      JSON.stringify(preview.writes)
+    );
+
+    // Change plugin source after preview → apply must PLAN_STALE (not wrong empty plan)
+    writeFileSync(join(root, 'rules/fleet-shared.md'), '# Fleet shared\n\nbody-v2\n');
+    const stale = vaultSyncApply(
+      { vaultId: 'gw-consumer', planToken: preview.planToken, mode: 'fleet' },
+      fleetCtx,
+    );
+    assert.equal(stale.ok, false);
+    assert.equal(stale.error.code, 'PLAN_STALE');
+
+    // Fresh fleet preview+apply succeeds from plugin source
+    const preview2 = vaultSyncPreview(
+      { vaultId: 'gw-consumer', mode: 'fleet' },
+      fleetCtx,
+    );
+    assert.equal(preview2.ok, true);
+    const applied = vaultSyncApply(
+      { vaultId: 'gw-consumer', planToken: preview2.planToken, mode: 'fleet' },
+      fleetCtx,
+    );
+    assert.equal(applied.ok, true, JSON.stringify(applied.error));
+    assert.match(
+      readFileSync(join(consumer, '.claude/rules/fleet-shared.md'), 'utf8'),
+      /body-v2/,
+    );
+    // Local mode on consumer (empty rules) would not write fleet-shared — proves source-aware
+    const localPrev = vaultSyncPreview({ vaultId: 'gw-consumer', mode: 'local' }, fleetCtx);
+    assert.ok(
+      !localPrev.writes?.some((w) => String(w.path).includes('fleet-shared')),
+      'local mode must not read plugin rules'
+    );
+  } finally {
+    rmSync(consumer, { recursive: true, force: true });
+  }
+});
+
+test('fleet applyMany continues when one target conflicts', () => {
+  const consumer = mkdtempSync(join(tmpdir(), 'vault-gw-consumer2-'));
+  try {
+    execFileSync('git', ['init'], { cwd: consumer, encoding: 'utf8' });
+    execFileSync('git', ['config', 'user.email', 't@t'], { cwd: consumer });
+    execFileSync('git', ['config', 'user.name', 't'], { cwd: consumer });
+    mkdirSync(join(consumer, 'memory'), { recursive: true });
+    mkdirSync(join(consumer, '.claude/rules'), { recursive: true });
+    writeFileSync(join(consumer, 'README.md'), '# c\n');
+    writeFileSync(join(consumer, '.claude/rules/fleet-shared.md'), 'unmarked hand\n');
+    execFileSync('git', ['add', 'README.md'], { cwd: consumer });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: consumer });
+
+    const fleetCtx = {
+      pluginRoot: root,
+      registry: {
+        version: 1,
+        projects: [
+          { id: 'gw-proj', path: root },
+          { id: 'gw-consumer2', path: consumer },
+        ],
+      },
+    };
+
+    const many = vaultSyncPreviewMany(
+      { vaultIds: ['gw-proj', 'gw-consumer2'], mode: 'fleet' },
+      fleetCtx,
+    );
+    assert.equal(many.ok, true);
+    const tokens = many.results
+      .filter((r) => r.ok)
+      .map((r) => ({ vaultId: r.vaultId, planToken: r.planToken }));
+    const applied = vaultSyncApplyMany({ targets: tokens, mode: 'fleet' }, fleetCtx);
+    // One may conflict; overall ok may be false but both results present
+    assert.equal(applied.results.length, tokens.length);
+    const cons = applied.results.find((r) => r.vaultId === 'gw-consumer2');
+    assert.equal(cons.ok, false);
+    assert.equal(cons.error?.code, 'SYNC_CONFLICT');
+  } finally {
+    rmSync(consumer, { recursive: true, force: true });
+  }
 });
 
 test('ctx env-gate rejects overrides without LUNA_VAULT_GATEWAY_TEST', () => {

@@ -64,17 +64,12 @@ function brandVault(info) {
 }
 
 /**
- * Outer authorization wall: only plugin root or a live registry entry may be a vault.
- * @param {string} pathOrId — registry project id, or absolute/relative path to a vault root
- * @param {{ registry?: { projects?: Array<{ id?: string, path?: string }> }, pluginRoot?: string }} [opts]
- * @returns {{ id: string, root: string, source: 'plugin'|'registry' }}
+ * Build the realpath-confined allow-list (plugin + live registry projects).
+ * Shared by resolveVaultRoot, CLI --all, and fleet sync — one confinement path.
+ *
+ * @returns {Map<string, { id: string, root: string, source: 'plugin'|'registry' }>}
  */
-export function resolveVaultRoot(pathOrId, opts = {}) {
-  if (pathOrId == null || String(pathOrId).trim() === '') {
-    throw Object.assign(new Error('resolveVaultRoot: pathOrId required'), {
-      code: 'VAULT_UNAUTHORIZED',
-    });
-  }
+export function buildAllowedVaultMap(opts = {}) {
   const pluginRootRaw = opts.pluginRoot ?? process.env.LUNA_PLUGIN_ROOT ?? null;
   const registry = opts.registry ?? loadRegistry();
 
@@ -95,9 +90,31 @@ export function resolveVaultRoot(pathOrId, opts = {}) {
     if (!existsSync(abs)) continue;
     const root = realpathSync(abs);
     const id = String(p.id || basename(root));
-  // Registry wins over plugin id collision for the same realpath (same entry).
+    // Registry wins over plugin id collision for the same realpath (same entry).
     allowed.set(root, { id, root, source: 'registry' });
   }
+
+  return allowed;
+}
+
+/** @returns {Array<{ id: string, root: string, source: 'plugin'|'registry' }>} */
+export function listAllowedVaults(opts = {}) {
+  return [...buildAllowedVaultMap(opts).values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * Outer authorization wall: only plugin root or a live registry entry may be a vault.
+ * @param {string} pathOrId — registry project id, or absolute/relative path to a vault root
+ * @param {{ registry?: { projects?: Array<{ id?: string, path?: string }> }, pluginRoot?: string }} [opts]
+ * @returns {{ id: string, root: string, source: 'plugin'|'registry' }}
+ */
+export function resolveVaultRoot(pathOrId, opts = {}) {
+  if (pathOrId == null || String(pathOrId).trim() === '') {
+    throw Object.assign(new Error('resolveVaultRoot: pathOrId required'), {
+      code: 'VAULT_UNAUTHORIZED',
+    });
+  }
+  const allowed = buildAllowedVaultMap(opts);
 
   const key = String(pathOrId).trim();
 

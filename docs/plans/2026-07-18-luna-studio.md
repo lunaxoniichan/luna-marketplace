@@ -31,10 +31,9 @@ Next.js 16 host-first UI :3900; kit hierarchy + submodule-overlap edges only (no
 Docker optional/plugin-only. Fixtures opt-in via `LUNA_STUDIO_FIXTURES=1` / `npm run studio:fixtures`.
 
 ### phase-2 — Editing + agent-view generation
-**Status:** Tasks 1–3 backend + Task 3 UI chrome landed (T6 folded; sync UI fleet-shaped for T5).
-- Task 1: sync contract (active) · Task 2: vault-crud (active)
-- Task 3: server-actions contract (**active**) + VaultWorkspace / SyncPreviewPanel
-- Open: T5 fleet `sync --all` source rewrite · Task 4–5
+**Status:** Tasks 1–3 + T5 + T6 done. Open: Task 4–5 · Phase 3 contract.
+- Fleet sync ACTIVE: `docs/specs/2026-07-19-fleet-sync-contract.md` (`--all`, `mode:'fleet'`, adopt-unmarked, write-only default)
+- Open after T5: Task 4–5 · Phase 3 contract
 
 ### phase-3 — Graph memory backend
 FalkorDB + Graphiti + local-ai; fail-open; `LUNA_MEMORY_KG`.

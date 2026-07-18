@@ -43,6 +43,7 @@ flowchart LR
 | [`specs/2026-07-18-studio-server-actions-contract.md`](specs/2026-07-18-studio-server-actions-contract.md) | **spec** — Studio Server Actions — vault CRUD + sync boundary | official | studio, server-actions, vault, sync, authorization |
 | [`specs/2026-07-18-sync-agent-views-contract.md`](specs/2026-07-18-sync-agent-views-contract.md) | **spec** — sync-agent-views — generation / no-clobber contract | official | sync-agent-views, generated, memory, rules, clobber |
 | [`specs/2026-07-18-vault-crud-contract.md`](specs/2026-07-18-vault-crud-contract.md) | **spec** — Studio vault CRUD — mutation / safety contract | official | studio, crud, vault, git, path-confinement, authorization |
+| [`specs/2026-07-19-fleet-sync-contract.md`](specs/2026-07-19-fleet-sync-contract.md) | **spec** — Fleet sync — plugin rules/ → all registry projects | official | fleet, sync-agent-views, rules, registry, T5 |
 | [`specs/code-intelligence-tools-comparison.md`](specs/code-intelligence-tools-comparison.md) | **spec** — GitNexus vs codebase-memory-mcp vs CodeGraph | official | gitnexus, jscpd, code-intelligence |
 | [`specs/monorepo-refactor-playbook.md`](specs/monorepo-refactor-playbook.md) | **spec** — Monorepo + submodule refactor playbook | official | monorepo, submodule, refactor, jscpd |
 | [`specs/vibe-rules-dedup-handoff.md`](specs/vibe-rules-dedup-handoff.md) | **spec** — vibe-rules dedup + ECC retirement — handoff | official | vibe-rules, ecc, handoff |
@@ -79,7 +80,7 @@ flowchart LR
 <!-- luna:generated:health:start -->
 ### Generated health
 
-- Oversize alert (>500): **1** · warn (>300): **2**
+- Oversize alert (>500): **1** · warn (>300): **3**
 - Broken `related` / wikilinks: **0**
 - Missing front-matter (spec/plan/decision/memory): **0**
 
