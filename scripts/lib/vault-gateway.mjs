@@ -7,7 +7,7 @@
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, basename } from 'node:path';
 import {
   resolveVaultRoot,
   createFile,
@@ -24,6 +24,7 @@ import { parseFrontmatter } from './frontmatter.mjs';
 import { syncAgentViews } from './agent-views.mjs';
 import { loadRegistry } from './luna-registry.mjs';
 import { planLifecycleMove, applyLifecycleMove } from './doc-lifecycle.mjs';
+import { buildReport } from './knowledge-dedupe.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -54,6 +55,7 @@ const LIFECYCLE_KEYS = new Set([
   'destSubdir',
   'planToken',
 ]);
+const DEDUPE_KEYS = new Set(['vaultId', 'scopeMode']);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -745,3 +747,52 @@ export function vaultLifecycleApply(input, ctx = {}) {
     }
   });
 }
+
+/**
+ * Read-only knowledge overlap report (lexical keyword pass).
+ * Contract: docs/specs/2026-07-19-dedupe-assistant-contract.md
+ */
+export function vaultDedupeReport(input, ctx = {}) {
+  const g = gate(input, DEDUPE_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+
+  const scopeMode = input.scopeMode == null ? 'vault' : String(input.scopeMode);
+  if (!['vault', 'vault+plugin', 'registry'].includes(scopeMode)) {
+    return {
+      ok: false,
+      error: { code: 'SCOPE_INVALID', message: 'scopeMode must be vault|vault+plugin|registry' },
+    };
+  }
+
+  try {
+    // Authorize vaultId against allow-list (even though we read plugin knowledge.json).
+    openVault(String(input.vaultId), ctx);
+    const plugin = resolve(ctx.pluginRoot ?? pluginRoot());
+    const knowledgePath = join(plugin, 'docs/generated/knowledge.json');
+    if (!existsSync(knowledgePath)) {
+      return {
+        ok: false,
+        error: {
+          code: 'KNOWLEDGE_MISSING',
+          message: 'knowledge.json missing — run: node scripts/build-knowledge.mjs',
+        },
+      };
+    }
+    const knowledge = JSON.parse(readFileSync(knowledgePath, 'utf8'));
+    const items = Array.isArray(knowledge.items) ? knowledge.items : [];
+    const pluginProjectId =
+      (knowledge.projects || []).find((p) => p.scope_role?.includes('plugin'))?.id ||
+      basename(plugin);
+
+    const report = buildReport(items, {
+      scope: { mode: scopeMode, vaultId: String(input.vaultId) },
+      pluginProjectId,
+    });
+    return { ok: true, vaultId: String(input.vaultId), report };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+

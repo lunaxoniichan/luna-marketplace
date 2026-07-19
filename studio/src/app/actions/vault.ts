@@ -19,6 +19,7 @@ import {
   vaultSyncApplyMany as syncApplyMany,
   vaultLifecyclePreview as lifecyclePreview,
   vaultLifecycleApply as lifecycleApply,
+  vaultDedupeReport as dedupeReport,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -76,6 +77,10 @@ export async function vaultLifecyclePreview(input: Record<string, unknown>) {
 
 export async function vaultLifecycleApply(input: Record<string, unknown>) {
   return lifecycleApply(input);
+}
+
+export async function vaultDedupeReport(input: Record<string, unknown>) {
+  return dedupeReport(input);
 }
 
 export async function listSyncTargets() {

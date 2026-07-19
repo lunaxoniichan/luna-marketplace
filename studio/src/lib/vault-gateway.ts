@@ -24,5 +24,6 @@ export {
   vaultSyncApplyMany,
   vaultLifecyclePreview,
   vaultLifecycleApply,
+  vaultDedupeReport,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

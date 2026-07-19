@@ -10,6 +10,7 @@
     "test:vault-crud": "node tests/vault-crud/vault-crud.test.mjs",
     "test:vault-gateway": "node tests/studio/vault-gateway.test.mjs",
     "test:doc-lifecycle": "node tests/scripts/doc-lifecycle.test.mjs",
+    "test:knowledge-dedupe": "node tests/scripts/knowledge-dedupe.test.mjs && node tests/scripts/build-knowledge-canonical.test.mjs && node scripts/knowledge-dedupe.mjs --check-fixture",
     "test:plans-registry": "node tests/scripts/build-plans-registry.test.mjs",
     "test:studio": "node tests/studio/studio.test.js",
     "build:plugin-graph": "node scripts/build-plugin-graph.mjs",

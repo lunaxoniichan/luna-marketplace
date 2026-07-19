@@ -12,3 +12,4 @@
 | T6 | Gateway hardening: per-vault mutation mutex, error normalization, body size cap, ctx env-gate. | `docs/plans/2026-07-18-luna-studio.md` | phase-2 | done |
 | T7 | Phase 0 residuals: FM on architecture docs; surface `missing_frontmatter` in README health; content-aware `--check`. | `docs/plans/2026-07-18-luna-studio.md` | phase-0 follow-up | open |
 | T8 | Studio UI hint after `type: plan` demote/supersede: surface “plan archived — run `build-plans-registry.mjs`” (registry rebuild is a separate no-trailer commit; skill documents it, UI does not yet). | `docs/plans/2026-07-18-luna-studio.md` | phase-2 follow-up | open |
+| T9 | Dedupe assistant (lexical keyword pass, read-only) — contract + lib + Studio Dedupe tab. | `docs/plans/2026-07-18-luna-studio.md` | phase-2 Task 5 | done |

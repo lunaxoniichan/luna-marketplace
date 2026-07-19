@@ -40,7 +40,7 @@ function collectScope(root, scope, projectId) {
   const items = [];
   const paths = [
     { under: 'docs', label: 'docs' },
-    { under: join('.claude', 'rules'), label: 'rules' },
+    { under: 'rules', label: 'rules' },
   ];
   for (const mem of ['memory', join('.claude', 'memory')]) {
     if (existsSync(join(root, mem))) paths.push({ under: mem, label: 'memory' });
@@ -65,6 +65,7 @@ function collectScope(root, scope, projectId) {
         lines: f.lines,
         has_frontmatter: hasFm,
         excerpt: body.replace(/\s+/g, ' ').trim().slice(0, 240),
+        canonical: true,
       });
     }
   }
@@ -86,6 +87,7 @@ function collectScope(root, scope, projectId) {
       lines: text.split(/\r?\n/).length,
       has_frontmatter: false,
       excerpt: text.replace(/\s+/g, ' ').trim().slice(0, 240),
+      canonical: true,
     });
   }
 
