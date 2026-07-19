@@ -25,6 +25,10 @@ import { syncAgentViews } from './agent-views.mjs';
 import { loadRegistry } from './luna-registry.mjs';
 import { planLifecycleMove, applyLifecycleMove } from './doc-lifecycle.mjs';
 import { buildReport } from './knowledge-dedupe.mjs';
+import {
+  rebuildGraphMemory,
+  invokeGraphMemoryTool,
+} from './graph-memory.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -56,6 +60,15 @@ const LIFECYCLE_KEYS = new Set([
   'planToken',
 ]);
 const DEDUPE_KEYS = new Set(['vaultId', 'scopeMode']);
+const GRAPH_MEMORY_KEYS = new Set([
+  'vaultId',
+  'query',
+  'id',
+  'source_path',
+  'limit',
+  'tool',
+  'rebuild',
+]);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -791,6 +804,98 @@ export function vaultDedupeReport(input, ctx = {}) {
       pluginProjectId,
     });
     return { ok: true, vaultId: String(input.vaultId), report };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Read-only graph-memory status / search (Phase 3).
+ * Contract: docs/specs/2026-07-19-graph-memory-backend-contract.md
+ */
+export function vaultGraphMemoryStatus(input, ctx = {}) {
+  const g = gate(input, new Set(['vaultId']), ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    const out = invokeGraphMemoryTool(
+      'graph_memory_status',
+      { vaultId: String(input.vaultId) },
+      { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
+    );
+    return out;
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+export function vaultGraphMemorySearch(input, ctx = {}) {
+  const g = gate(input, new Set(['vaultId', 'query', 'limit']), ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    return invokeGraphMemoryTool(
+      'search_context',
+      {
+        vaultId: String(input.vaultId),
+        query: String(input.query || ''),
+        limit: input.limit,
+      },
+      { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
+    );
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Optional rebuild (index write only under docs/generated/graph-memory — never canonical markdown).
+ */
+export async function vaultGraphMemoryRebuild(input, ctx = {}) {
+  const g = gate(input, new Set(['vaultId']), ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const result = await rebuildGraphMemory({
+      vaultId: String(input.vaultId),
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return {
+      ok: true,
+      vaultId: result.vaultId,
+      status: result.index.status,
+      sources: result.index.sources.length,
+      chunks: result.index.chunks.length,
+    };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/** Generic read-only tool dispatch (rejects mutation names). */
+export function vaultGraphMemoryTool(input, ctx = {}) {
+  const g = gate(input, GRAPH_MEMORY_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  const tool = String(input.tool || '');
+  try {
+    return invokeGraphMemoryTool(
+      tool,
+      {
+        vaultId: String(input.vaultId),
+        query: input.query,
+        id: input.id,
+        source_path: input.source_path,
+        limit: input.limit,
+      },
+      { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
+    );
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }

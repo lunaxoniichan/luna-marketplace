@@ -25,5 +25,9 @@ export {
   vaultLifecyclePreview,
   vaultLifecycleApply,
   vaultDedupeReport,
+  vaultGraphMemoryStatus,
+  vaultGraphMemorySearch,
+  vaultGraphMemoryRebuild,
+  vaultGraphMemoryTool,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

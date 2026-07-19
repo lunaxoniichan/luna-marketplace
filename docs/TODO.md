@@ -13,3 +13,6 @@
 | T7 | Phase 0 residuals: FM on architecture docs; surface `missing_frontmatter` in README health; content-aware `--check`. | `docs/plans/2026-07-18-luna-studio.md` | phase-0 follow-up | open |
 | T8 | Studio UI hint after `type: plan` demote/supersede: surface “plan archived — run `build-plans-registry.mjs`” (registry rebuild is a separate no-trailer commit; skill documents it, UI does not yet). | `docs/plans/2026-07-18-luna-studio.md` | phase-2 follow-up | open |
 | T9 | Dedupe assistant (lexical keyword pass, read-only) — contract + lib + Studio Dedupe tab. | `docs/plans/2026-07-18-luna-studio.md` | phase-2 Task 5 | done |
+| T10 | Graph memory backend (Phase 3) — rebuildable file-JSON index, read-only query, fail-open local-ai, Studio Graph memory tab. Contract: `docs/specs/2026-07-19-graph-memory-backend-contract.md`. | `docs/plans/2026-07-18-luna-studio.md` | phase-3 | done |
+| T11 | Optional Graphiti + FalkorDB enrichment adapters (still fail-open; file-JSON remains default). | `docs/plans/2026-07-18-luna-studio.md` | phase-3 follow-up | open |
+| T12 | `recent_changes` is not recency-ordered (path order + shared `built_at`). Capture per-source git/mtime at rebuild and sort, or rename until recency is honest. | `docs/plans/2026-07-18-luna-studio.md` | phase-3 follow-up | open |

@@ -20,6 +20,9 @@ import {
   vaultLifecyclePreview as lifecyclePreview,
   vaultLifecycleApply as lifecycleApply,
   vaultDedupeReport as dedupeReport,
+  vaultGraphMemoryStatus as graphMemoryStatus,
+  vaultGraphMemorySearch as graphMemorySearch,
+  vaultGraphMemoryRebuild as graphMemoryRebuild,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -81,6 +84,18 @@ export async function vaultLifecycleApply(input: Record<string, unknown>) {
 
 export async function vaultDedupeReport(input: Record<string, unknown>) {
   return dedupeReport(input);
+}
+
+export async function vaultGraphMemoryStatus(input: Record<string, unknown>) {
+  return graphMemoryStatus(input);
+}
+
+export async function vaultGraphMemorySearch(input: Record<string, unknown>) {
+  return graphMemorySearch(input);
+}
+
+export async function vaultGraphMemoryRebuild(input: Record<string, unknown>) {
+  return graphMemoryRebuild(input);
 }
 
 export async function listSyncTargets() {

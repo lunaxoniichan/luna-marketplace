@@ -14,6 +14,7 @@ import {
 } from "@/app/actions/vault";
 import { SyncPreviewPanel } from "@/components/SyncPreviewPanel";
 import { DedupePanel } from "@/components/DedupePanel";
+import { GraphMemoryPanel } from "@/components/GraphMemoryPanel";
 
 type WikiTarget = { slug: string; path: string; title: string };
 
@@ -56,7 +57,7 @@ export function VaultWorkspace({
   }, [fleetTargets, vaultId, pluginVaultId]);
   const rulesReadOnly = !isPluginVault;
 
-  const [tab, setTab] = useState<"memory" | "rules" | "docs" | "sync" | "dedupe">("memory");
+  const [tab, setTab] = useState<"memory" | "rules" | "docs" | "sync" | "dedupe" | "graph">("memory");
   const [lists, setLists] = useState<{ rules: string[]; memory: string[]; docs: string[] }>({
     rules: [],
     memory: [],
@@ -316,6 +317,7 @@ export function VaultWorkspace({
               ["rules", "Rules"],
               ["docs", "Docs"],
               ["dedupe", "Dedupe"],
+              ["graph", "Graph memory"],
               ["sync", "Regenerate views"],
             ] as const
           ).map(([id, label]) => (
@@ -379,6 +381,16 @@ export function VaultWorkspace({
         <SyncPreviewPanel vaultId={vaultId} fleetTargets={fleetTargets} />
       ) : tab === "dedupe" ? (
         <DedupePanel
+          vaultId={vaultId}
+          onOpenPath={(relPath, nextTab) => {
+            setTab(nextTab);
+            setCreating(false);
+            setLifecyclePreview(null);
+            loadFile(relPath);
+          }}
+        />
+      ) : tab === "graph" ? (
+        <GraphMemoryPanel
           vaultId={vaultId}
           onOpenPath={(relPath, nextTab) => {
             setTab(nextTab);

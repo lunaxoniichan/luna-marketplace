@@ -31,14 +31,13 @@ Next.js 16 host-first UI :3900; kit hierarchy + submodule-overlap edges only (no
 Docker optional/plugin-only. Fixtures opt-in via `LUNA_STUDIO_FIXTURES=1` / `npm run studio:fixtures`.
 
 ### phase-2 — Editing + agent-view generation
-**Status:** Tasks 1–6 done (incl. Task 5 dedupe). Open: Phase 3 contract.
+**Status:** Tasks 1–6 done (incl. Task 5 dedupe).
 - Fleet sync ACTIVE: `docs/specs/2026-07-19-fleet-sync-contract.md` (`--all`, `mode:'fleet'`, adopt-unmarked, write-only default)
 - Lifecycle promote/demote ACTIVE: `docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md`
 - Dedupe assistant ACTIVE: `docs/specs/2026-07-19-dedupe-assistant-contract.md` (lexical keyword pass, read-only)
-- Open: Phase 3 contract
 
 ### phase-3 — Graph memory backend
-FalkorDB + Graphiti + local-ai; fail-open; `LUNA_MEMORY_KG`.
+**Status:** DONE (v1) 2026-07-19 — contract ACTIVE; file-JSON index + fail-open embeddings + read-only query; Studio Graph memory tab. Graphiti/FalkorDB adapters deferred (T11).
 
 ### phase-4 — Context-engineering features
 Context pack, correction inbox, drift alerts, cross-project reuse, ADR why-view.

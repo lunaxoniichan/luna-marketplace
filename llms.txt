@@ -14,5 +14,8 @@
 - docs/specs/2026-07-18-doc-lifecycle-pre-official-post.md — Doc lifecycle — PRE_OFFICIAL / OFFICIAL / POST_OFFICIAL (lifecycle, docs, pre_official)
 - docs/specs/2026-07-18-sharks-loop-convergence-oracle.md — Sharks-Loop — convergence oracle for the coding-agent loop (sharks-loop, verification, convergence)
 
+## Pre-official
+- docs/pre-official/research/2026-07-19-context-engineering-coding-agents.md — Context Engineering for Coding Agents (context-engineering, memory, graphiti)
+
 ## Code structure
 Use GitNexus MCP — do not grep for call graphs.

@@ -24,3 +24,5 @@ studio/tsconfig.tsbuildinfo
 
 # Machine-specific Studio aggregate (rebuild: npm run build:knowledge)
 docs/generated/knowledge.json
+docs/generated/graph-memory/
+**/docs/generated/graph-memory/
