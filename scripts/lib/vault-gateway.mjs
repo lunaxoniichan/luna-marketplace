@@ -23,6 +23,7 @@ import {
 import { parseFrontmatter } from './frontmatter.mjs';
 import { syncAgentViews } from './agent-views.mjs';
 import { loadRegistry } from './luna-registry.mjs';
+import { planLifecycleMove, applyLifecycleMove } from './doc-lifecycle.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -45,6 +46,14 @@ const CRUD_KEYS = new Set([
 const SYNC_KEYS = new Set(['vaultId', 'planToken', 'mode', 'adoptUnmarked']);
 const SYNC_MANY_KEYS = new Set(['vaultIds', 'mode', 'adoptUnmarked']);
 const SYNC_APPLY_MANY_KEYS = new Set(['targets', 'mode', 'adoptUnmarked']); // [{ vaultId, planToken }]
+const LIFECYCLE_KEYS = new Set([
+  'vaultId',
+  'relPath',
+  'op',
+  'supersededBy',
+  'destSubdir',
+  'planToken',
+]);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -403,22 +412,36 @@ export function vaultRead(input, ctx = {}) {
   }
 }
 
-/** List editable relative paths under allowed prefixes. */
+/** List editable relative paths under allowed prefixes (docs recurse into buckets). */
 export function vaultList(input, ctx = {}) {
   const allowed = new Set(['vaultId']);
   const g = gate(input, allowed, ctx);
   if (g) return g;
   const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
+
+  function walkMd(absDir, relPrefix, out) {
+    if (!existsSync(absDir)) return;
+    for (const ent of readdirSync(absDir, { withFileTypes: true })) {
+      if (ent.name === 'generated' || ent.name.startsWith('.')) continue;
+      const rel = `${relPrefix}${ent.name}`;
+      const abs = join(absDir, ent.name);
+      if (ent.isDirectory()) {
+        walkMd(abs, `${rel}/`, out);
+      } else if (ent.name.endsWith('.md') && !ent.name.endsWith('.local.md')) {
+        out.push(rel);
+      }
+    }
+  }
+
   try {
     const vault = openVault(String(input.vaultId), ctx);
     const groups = { rules: [], memory: [], docs: [] };
     for (const prefix of ALLOWED_PREFIXES) {
       const dir = join(vault.root, prefix.replace(/\/$/, ''));
-      if (!existsSync(dir)) continue;
-      const files = readdirSync(dir).filter((f) => f.endsWith('.md') && !f.endsWith('.local.md'));
-      for (const f of files) {
-        const rel = `${prefix}${f}`;
+      const bucket = [];
+      walkMd(dir, prefix, bucket);
+      for (const rel of bucket) {
         if (prefix.startsWith('rules/')) groups.rules.push(rel);
         else if (prefix.startsWith('memory/')) groups.memory.push(rel);
         else groups.docs.push(rel);
@@ -598,4 +621,127 @@ export function listSyncTargets(ctx = {}) {
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }
+}
+
+/**
+ * Preview a lifecycle promote/demote/supersede (no writes).
+ * Returns planToken for apply TOCTOU.
+ */
+export function vaultLifecyclePreview(input, ctx = {}) {
+  const g = gate(input, LIFECYCLE_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  const op = String(input.op || '');
+  if (!['promote', 'demote', 'supersede'].includes(op)) {
+    return { ok: false, error: { code: 'OP', message: 'op must be promote|demote|supersede' } };
+  }
+  if (typeof input.relPath !== 'string' || !input.relPath.trim()) {
+    return { ok: false, error: { code: 'REL_PATH', message: 'relPath required' } };
+  }
+  try {
+    const vault = openVault(String(input.vaultId), ctx);
+    const planned = planLifecycleMove({
+      vault,
+      relPath: input.relPath,
+      op,
+      supersededBy: input.supersededBy,
+      destSubdir: input.destSubdir,
+    });
+    if (!planned.ok) {
+      return {
+        ok: false,
+        error: normalizeError(
+          { code: planned.error?.code, message: planned.error?.message || 'plan failed' },
+          planned.error?.code || 'ERROR',
+        ),
+      };
+    }
+    return {
+      ok: true,
+      vaultId: String(input.vaultId),
+      op,
+      src: planned.plan.src,
+      dest: planned.plan.dest,
+      tagOnly: planned.plan.tagOnly,
+      nextFm: planned.plan.nextFm,
+      planToken: planned.planToken,
+    };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/** Apply a previously previewed lifecycle move (planToken required). */
+export function vaultLifecycleApply(input, ctx = {}) {
+  const g = gate(input, LIFECYCLE_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  if (typeof input.planToken !== 'string' || !SHA256_RE.test(input.planToken)) {
+    return {
+      ok: false,
+      error: { code: 'PLAN_TOKEN', message: 'planToken required (from vaultLifecyclePreview)' },
+    };
+  }
+  const op = String(input.op || '');
+  if (!['promote', 'demote', 'supersede'].includes(op)) {
+    return { ok: false, error: { code: 'OP', message: 'op must be promote|demote|supersede' } };
+  }
+  const vaultId = String(input.vaultId);
+  return withVaultLock(vaultId, () => {
+    try {
+      const vault = openVault(vaultId, ctx);
+      const planned = planLifecycleMove({
+        vault,
+        relPath: input.relPath,
+        op,
+        supersededBy: input.supersededBy,
+        destSubdir: input.destSubdir,
+      });
+      if (!planned.ok) {
+        return {
+          ok: false,
+          error: normalizeError(
+            { code: planned.error?.code, message: planned.error?.message || 'plan failed' },
+            planned.error?.code || 'ERROR',
+          ),
+        };
+      }
+      if (planned.planToken !== input.planToken) {
+        return {
+          ok: false,
+          error: {
+            code: 'PLAN_STALE',
+            message: 'Working tree changed since preview — run vaultLifecyclePreview again',
+          },
+        };
+      }
+      const applied = applyLifecycleMove({
+        vault,
+        plan: planned.plan,
+        planToken: input.planToken,
+      });
+      if (!applied.ok) {
+        return {
+          ok: false,
+          error: normalizeError(
+            { code: applied.error?.code, message: applied.error?.message || 'apply failed' },
+            applied.error?.code || 'ERROR',
+          ),
+        };
+      }
+      return {
+        ok: true,
+        vaultId,
+        relPath: applied.relPath,
+        src: applied.src,
+        dest: applied.dest,
+        commitSha: applied.commitSha,
+        indexRefreshed: applied.indexRefreshed,
+      };
+    } catch (e) {
+      return { ok: false, error: normalizeError(e) };
+    }
+  });
 }

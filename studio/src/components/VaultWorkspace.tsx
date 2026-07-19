@@ -9,6 +9,8 @@ import {
   vaultRead,
   vaultList,
   vaultWikilinks,
+  vaultLifecyclePreview,
+  vaultLifecycleApply,
 } from "@/app/actions/vault";
 import { SyncPreviewPanel } from "@/components/SyncPreviewPanel";
 
@@ -71,6 +73,14 @@ export function VaultWorkspace({
   const [pending, startTransition] = useTransition();
   const [creating, setCreating] = useState(false);
   const [newPath, setNewPath] = useState("");
+  const [supersededBy, setSupersededBy] = useState("");
+  const [lifecyclePreview, setLifecyclePreview] = useState<{
+    op: string;
+    src: string;
+    dest: string;
+    planToken: string;
+    tagOnly?: boolean;
+  } | null>(null);
 
   const refreshList = useCallback(() => {
     startTransition(async () => {
@@ -103,6 +113,7 @@ export function VaultWorkspace({
     setMsg(null);
     setErr(null);
     setWarnings([]);
+    setLifecyclePreview(null);
     startTransition(async () => {
       const r = await vaultRead({ vaultId, relPath });
       if (!r.ok) {
@@ -223,6 +234,68 @@ export function VaultWorkspace({
       setConfirmSha(null);
       setBody("");
       refreshList();
+    });
+  };
+
+  const lifecycleSurface = tab === "docs" || tab === "memory";
+
+  const previewLifecycle = (op: "promote" | "demote" | "supersede") => {
+    if (!selected || !lifecycleSurface) return;
+    setErr(null);
+    setMsg(null);
+    setLifecyclePreview(null);
+    startTransition(async () => {
+      const r = await vaultLifecyclePreview({
+        vaultId,
+        relPath: selected,
+        op,
+        supersededBy: op === "supersede" ? supersededBy : undefined,
+      });
+      if (!r.ok) {
+        setErr((r as { error: { message: string } }).error?.message || "lifecycle preview failed");
+        return;
+      }
+      const p = r as {
+        op: string;
+        src: string;
+        dest: string;
+        planToken: string;
+        tagOnly?: boolean;
+      };
+      setLifecyclePreview({
+        op: p.op,
+        src: p.src,
+        dest: p.dest,
+        planToken: p.planToken,
+        tagOnly: p.tagOnly,
+      });
+      setMsg(`Preview ${p.op}: ${p.src} → ${p.dest}${p.tagOnly ? " (tag-only)" : ""}`);
+    });
+  };
+
+  const applyLifecycle = () => {
+    if (!selected || !lifecyclePreview) return;
+    setErr(null);
+    startTransition(async () => {
+      const r = await vaultLifecycleApply({
+        vaultId,
+        relPath: selected,
+        op: lifecyclePreview.op,
+        planToken: lifecyclePreview.planToken,
+        supersededBy:
+          lifecyclePreview.op === "supersede" ? supersededBy : undefined,
+      });
+      if (!r.ok) {
+        setErr((r as { error: { message: string } }).error?.message || "lifecycle apply failed");
+        return;
+      }
+      const dest = (r as { dest: string }).dest;
+      setMsg(
+        `Lifecycle ${lifecyclePreview.op} → ${dest} @ ${(r as { commitSha?: string }).commitSha?.slice(0, 7)}`,
+      );
+      setLifecyclePreview(null);
+      refreshList();
+      loadFile(dest);
     });
   };
 
@@ -420,6 +493,55 @@ export function VaultWorkspace({
                     </button>
                   )}
                 </div>
+
+                {!creating && selected && lifecycleSurface && (
+                  <div className="space-y-2 rounded border border-slate-800 p-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Lifecycle
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Promote / demote / supersede via the shared lib (same as{" "}
+                      <code>doc-update-*</code> skills). Not available on Rules.
+                    </p>
+                    <label className="block text-sm">
+                      <span className="text-slate-400">superseded_by (for supersede)</span>
+                      <input
+                        className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm"
+                        placeholder="docs/specs/replacement.md"
+                        value={supersededBy}
+                        onChange={(e) => setSupersededBy(e.target.value)}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["promote", "demote", "supersede"] as const).map((op) => (
+                        <button
+                          key={op}
+                          type="button"
+                          className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 disabled:opacity-50"
+                          onClick={() => previewLifecycle(op)}
+                          disabled={pending}
+                        >
+                          Preview {op}
+                        </button>
+                      ))}
+                      {lifecyclePreview && (
+                        <button
+                          type="button"
+                          className="rounded bg-slate-700 px-2 py-1 text-xs text-emerald-200 disabled:opacity-50"
+                          onClick={applyLifecycle}
+                          disabled={pending}
+                        >
+                          Apply {lifecyclePreview.op}
+                        </button>
+                      )}
+                    </div>
+                    {lifecyclePreview && (
+                      <p className="font-mono text-xs text-slate-400">
+                        {lifecyclePreview.src} → {lifecyclePreview.dest}
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
 

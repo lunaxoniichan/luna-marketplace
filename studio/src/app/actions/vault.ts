@@ -17,6 +17,8 @@ import {
   vaultSyncPreviewMany as syncPreviewMany,
   vaultSyncApply as syncApply,
   vaultSyncApplyMany as syncApplyMany,
+  vaultLifecyclePreview as lifecyclePreview,
+  vaultLifecycleApply as lifecycleApply,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -66,6 +68,14 @@ export async function vaultSyncApply(input: Record<string, unknown>) {
 
 export async function vaultSyncApplyMany(input: Record<string, unknown>) {
   return syncApplyMany(input);
+}
+
+export async function vaultLifecyclePreview(input: Record<string, unknown>) {
+  return lifecyclePreview(input);
+}
+
+export async function vaultLifecycleApply(input: Record<string, unknown>) {
+  return lifecycleApply(input);
 }
 
 export async function listSyncTargets() {

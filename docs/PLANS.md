@@ -4,6 +4,7 @@
 > **Owner** = which tool (`claude`/`cursor`) currently holds the work — the cross-tool handoff
 > column. **Spec** links back to the design in `docs/specs/`. Owner/Spec/Resume are human-kept;
 > Phase/Last commit/Status are derived from git and overwritten on each run.
+> Trailer paths are logical plan IDs; archived plans resolve under `post-official/completed-plans/`.
 
 | Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |
 |------|------|-------|-------|-------------|--------|-------------|

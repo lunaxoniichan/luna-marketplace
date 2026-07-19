@@ -22,5 +22,7 @@ export {
   vaultSyncPreviewMany,
   vaultSyncApply,
   vaultSyncApplyMany,
+  vaultLifecyclePreview,
+  vaultLifecycleApply,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

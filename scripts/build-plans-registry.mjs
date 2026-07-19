@@ -11,30 +11,56 @@
  * Human-maintained columns (Spec, Owner, Resume hint) are PRESERVED from the
  * existing table when a plan row already exists — git can't know them.
  *
+ * Lifecycle (§7 of promote/demote contract): trailer paths are immutable logical
+ * IDs. If the file moved to docs/post-official/completed-plans/<basename>, the
+ * row is listed under Completed with a resolvable current path.
+ *
  * Usage: node scripts/build-plans-registry.mjs   (run from repo root)
  *        --check   exit 1 if PLANS.md would change (CI guard), don't write.
+ *        --root <dir>  operate on a different git root (tests)
  */
 
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
-const PLANS_FILE = 'docs/PLANS.md';
+export const PLANS_FILE = 'docs/PLANS.md';
+export const COMPLETED_HEADING = '## Completed';
 const TRAILER_RE = /^Plan:\s*(\S+?)(?:#(\S+))?\s*$/im;
+const COMPLETED_DIR = 'docs/post-official/completed-plans';
 
-function git(args) {
+function git(cwd, args) {
   try {
-    return execSync(`git ${args}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return execSync(`git ${args}`, {
+      cwd: cwd || process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
   } catch {
     return '';
   }
 }
 
+/**
+ * Resolve where a logical plan id currently lives on disk.
+ * @param {string} root
+ * @param {string} logicalId — trailer path, e.g. docs/plans/foo.md
+ * @returns {string|null}
+ */
+export function resolvePlanCurrentPath(root, logicalId) {
+  const id = String(logicalId || '').replace(/\\/g, '/');
+  if (!id) return null;
+  if (existsSync(join(root, id))) return id;
+  const archived = `${COMPLETED_DIR}/${basename(id)}`;
+  if (existsSync(join(root, archived))) return archived;
+  return null;
+}
+
 // One record per commit that carries a Plan: trailer.
-function collectCommits() {
-  // %H hash, %h short, %cs commit date, %s subject, %b body — record-separated.
+export function collectCommits(root = process.cwd()) {
   const SEP = '';
   const REC = '';
-  const raw = git(`log --grep '^Plan:' --pretty=format:'%h${SEP}%cs${SEP}%s${SEP}%b${REC}'`);
+  const raw = git(root, `log --grep '^Plan:' --pretty=format:'%h${SEP}%cs${SEP}%s${SEP}%b${REC}'`);
   if (!raw.trim()) return [];
   const out = [];
   for (const rec of raw.split(REC)) {
@@ -49,24 +75,40 @@ function collectCommits() {
   return out;
 }
 
-// Preserve human columns from the existing PLANS.md (keyed by plan path).
-function existingHumanCols() {
+// Preserve human columns from the existing PLANS.md (keyed by plan path / logical id).
+export function existingHumanCols(root = process.cwd()) {
   const map = new Map();
-  if (!existsSync(PLANS_FILE)) return map;
-  const text = readFileSync(PLANS_FILE, 'utf8');
+  const plansPath = join(root, PLANS_FILE);
+  if (!existsSync(plansPath)) return map;
+  const text = readFileSync(plansPath, 'utf8');
   for (const line of text.split('\n')) {
     if (!line.startsWith('|') || line.includes('---') || /\|\s*Plan\s*\|/i.test(line)) continue;
-    const cols = line.split('|').map(c => c.trim());
+    const cols = line.split('|').map((c) => c.trim());
     // | Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |
+    // Completed rows may have an extra Current path column — still key on Plan (cols[2])
     if (cols.length < 9) continue;
     const plan = cols[2];
     if (!plan || plan === '—') continue;
-    map.set(plan, { spec: cols[1] || '—', owner: cols[4] || '—', resume: cols[7] || '—' });
+    // Active: 7 data cols; Completed: 8 data cols (includes Current path)
+    const completed = cols.length >= 11;
+    if (completed) {
+      map.set(plan, {
+        spec: cols[1] || '—',
+        owner: cols[5] || '—',
+        resume: cols[8] || '—',
+      });
+    } else {
+      map.set(plan, {
+        spec: cols[1] || '—',
+        owner: cols[4] || '—',
+        resume: cols[7] || '—',
+      });
+    }
   }
   return map;
 }
 
-function buildTable(commits, human) {
+function groupByPlan(commits) {
   const byPlan = new Map();
   for (const c of commits) {
     if (!byPlan.has(c.plan)) byPlan.set(c.plan, { phases: new Set(), commits: [] });
@@ -74,51 +116,140 @@ function buildTable(commits, human) {
     if (c.phase) g.phases.add(c.phase);
     g.commits.push(c);
   }
-
-  const header =
-    '| Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |\n' +
-    '|------|------|-------|-------|-------------|--------|-------------|';
-
-  if (byPlan.size === 0) {
-    return header + '\n| — | — | — | — | — | — | Run `doc-init` then `dev-plan` to start tracked plan work |';
-  }
-
-  const rows = [];
-  for (const [plan, g] of byPlan) {
-    const h = human.get(plan) || { spec: '—', owner: '—', resume: '—' };
-    const phases = [...g.phases].sort().join(', ') || '—';
-    const latest = g.commits[0]; // git log is newest-first
-    const lastCommit = `\`${latest.short}\` ${latest.date}`;
-    const status = /\bdone\b|complete|finish/i.test(latest.subject) ? 'done' : 'active';
-    rows.push(`| ${h.spec} | ${plan} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`);
-  }
-  return header + '\n' + rows.join('\n');
+  return byPlan;
 }
 
-function render(table) {
+function activeHeader() {
   return (
+    '| Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |\n' +
+    '|------|------|-------|-------|-------------|--------|-------------|'
+  );
+}
+
+function completedHeader() {
+  return (
+    '| Spec | Plan | Current path | Phase | Owner | Last commit | Status | Resume hint |\n' +
+    '|------|------|--------------|-------|-------|-------------|--------|-------------|'
+  );
+}
+
+function rowActive(plan, g, h) {
+  const phases = [...g.phases].sort().join(', ') || '—';
+  const latest = g.commits[0];
+  const lastCommit = `\`${latest.short}\` ${latest.date}`;
+  const status = /\bdone\b|complete|finish/i.test(latest.subject) ? 'done' : 'active';
+  return `| ${h.spec} | ${plan} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`;
+}
+
+function rowCompleted(plan, currentPath, g, h) {
+  const phases = [...g.phases].sort().join(', ') || '—';
+  const latest = g.commits[0];
+  const lastCommit = `\`${latest.short}\` ${latest.date}`;
+  const status = currentPath ? 'done' : 'dangling';
+  return `| ${h.spec} | ${plan} | ${currentPath || '—'} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`;
+}
+
+/**
+ * @param {string} root
+ * @param {Array<{ short: string, date: string, subject: string, plan: string, phase: string }>} commits
+ * @param {Map<string, { spec: string, owner: string, resume: string }>} human
+ */
+export function buildRegistryMarkdown(root, commits, human) {
+  const byPlan = groupByPlan(commits);
+  const activeRows = [];
+  const completedRows = [];
+
+  if (byPlan.size === 0) {
+    return (
+      '# Plan registry\n\n' +
+      "> Auto-built from `git log --grep '^Plan:'` via `scripts/build-plans-registry.mjs`.\n" +
+      '> **Owner** = which tool (`claude`/`cursor`) currently holds the work — the cross-tool handoff\n' +
+      '> column. **Spec** links back to the design in `docs/specs/`. Owner/Spec/Resume are human-kept;\n' +
+      '> Phase/Last commit/Status are derived from git and overwritten on each run.\n' +
+      '> Trailer paths are logical plan IDs; archived plans resolve under `post-official/completed-plans/`.\n\n' +
+      activeHeader() +
+      '\n| — | — | — | — | — | — | Run `doc-init` then `dev-plan` to start tracked plan work |\n'
+    );
+  }
+
+  for (const [plan, g] of byPlan) {
+    const h = human.get(plan) || { spec: '—', owner: '—', resume: '—' };
+    const current = resolvePlanCurrentPath(root, plan);
+    if (current && current.startsWith(COMPLETED_DIR + '/')) {
+      completedRows.push(rowCompleted(plan, current, g, h));
+    } else if (!current) {
+      // dangling — show in Active with status dangling so it's visible
+      const phases = [...g.phases].sort().join(', ') || '—';
+      const latest = g.commits[0];
+      const lastCommit = `\`${latest.short}\` ${latest.date}`;
+      activeRows.push(
+        `| ${h.spec} | ${plan} | ${phases} | ${h.owner} | ${lastCommit} | dangling | ${h.resume} |`,
+      );
+    } else {
+      activeRows.push(rowActive(plan, g, h));
+    }
+  }
+
+  let body =
     '# Plan registry\n\n' +
     "> Auto-built from `git log --grep '^Plan:'` via `scripts/build-plans-registry.mjs`.\n" +
     '> **Owner** = which tool (`claude`/`cursor`) currently holds the work — the cross-tool handoff\n' +
     '> column. **Spec** links back to the design in `docs/specs/`. Owner/Spec/Resume are human-kept;\n' +
-    '> Phase/Last commit/Status are derived from git and overwritten on each run.\n\n' +
-    table + '\n'
-  );
-}
+    '> Phase/Last commit/Status are derived from git and overwritten on each run.\n' +
+    '> Trailer paths are logical plan IDs; archived plans resolve under `post-official/completed-plans/`.\n\n' +
+    activeHeader() +
+    '\n' +
+    (activeRows.length
+      ? activeRows.join('\n')
+      : '| — | — | — | — | — | — | — |');
 
-const commits = collectCommits();
-const table = buildTable(commits, existingHumanCols());
-const next = render(table);
-const current = existsSync(PLANS_FILE) ? readFileSync(PLANS_FILE, 'utf8') : '';
-
-if (process.argv.includes('--check')) {
-  if (next !== current) {
-    console.error(`${PLANS_FILE} is out of date — run: node scripts/build-plans-registry.mjs`);
-    process.exit(1);
+  if (completedRows.length) {
+    body +=
+      '\n\n' +
+      COMPLETED_HEADING +
+      '\n\n' +
+      '> Plans whose files live under `docs/post-official/completed-plans/`. **Plan** column stays the\n' +
+      '> logical trailer id; **Current path** is the on-disk location.\n\n' +
+      completedHeader() +
+      '\n' +
+      completedRows.join('\n');
   }
-  console.log(`${PLANS_FILE} is up to date.`);
-  process.exit(0);
+
+  return body + '\n';
 }
 
-writeFileSync(PLANS_FILE, next, 'utf8');
-console.log(`Wrote ${PLANS_FILE} (${commits.length} plan-tagged commits).`);
+export function renderAt(root = process.cwd()) {
+  const commits = collectCommits(root);
+  return buildRegistryMarkdown(root, commits, existingHumanCols(root));
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const rootIdx = args.indexOf('--root');
+  const root = rootIdx >= 0 ? args[rootIdx + 1] : process.cwd();
+  const next = renderAt(root);
+  const plansPath = join(root, PLANS_FILE);
+  const current = existsSync(plansPath) ? readFileSync(plansPath, 'utf8') : '';
+
+  if (args.includes('--check')) {
+    if (next !== current) {
+      console.error(`${PLANS_FILE} is out of date — run: node scripts/build-plans-registry.mjs`);
+      process.exit(1);
+    }
+    console.log(`${PLANS_FILE} is up to date.`);
+    process.exit(0);
+  }
+
+  writeFileSync(plansPath, next, 'utf8');
+  const commits = collectCommits(root);
+  console.log(`Wrote ${PLANS_FILE} (${commits.length} plan-tagged commits).`);
+}
+
+const isMain =
+  process.argv[1] &&
+  (process.argv[1].endsWith('build-plans-registry.mjs') ||
+    process.argv[1].endsWith('build-plans-registry.js'));
+
+if (isMain) {
+  main();
+}

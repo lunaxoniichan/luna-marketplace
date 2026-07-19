@@ -17,6 +17,30 @@ lessons. This is the **agent** half of the doc obligation — architecture docs 
 | `docs/TODO.md` | scope deferred; a backlog item opened/closed — each row links `Plan file` + `Plan phase` |
 | `.claude/rules/lessons.md` | the user **rejected or corrected** an approach (append one line) + mirror to `.cursor/rules/lessons.mdc` |
 
+## Lifecycle archival (canonical procedure)
+
+When a plan ships or a pre-official concept is rejected, **archive via the shared lib — never hand
+`git mv`**. Contract: `docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md`.
+
+| Situation | Op | Command |
+|-----------|-----|---------|
+| Plan work done | `demote` | `node scripts/doc-lifecycle.mjs demote docs/plans/<file>.md` |
+| Concept abandoned | `demote` | `node scripts/doc-lifecycle.mjs demote docs/pre-official/.../<file>.md` |
+
+This flips front-matter (`lifecycle: post_official`, `status: done`), moves plans to
+`docs/post-official/completed-plans/` (history-preserving rename), commits with
+`docs(lifecycle): …` and **no** `Plan:` trailer, then refreshes the docs index.
+
+After archiving a plan, rebuild the registry so the Completed section resolves:
+
+```
+node scripts/build-plans-registry.mjs
+```
+
+Trailer paths stay logical IDs; the registry resolves the on-disk path under `completed-plans/`.
+
+Studio UI calls the same `planLifecycleMove` / `applyLifecycleMove` — results are byte-identical.
+
 ## Process
 
 1. **Plan/backlog:** reflect real status. `PLANS.md` is derivable from git — prefer running
@@ -26,12 +50,13 @@ lessons. This is the **agent** half of the doc obligation — architecture docs 
    optionally save a project-scoped `feedback` memory (prefix `[portable]` if the lesson applies
    beyond this repo). **Never write `~/.claude/CLAUDE.md`** — user-level memory is the human's job.
    (The `lessons-extractor` SessionEnd hook also captures these automatically — this skill is the
-   also captures these automatically — this skill is the in-session, deliberate path.)
+   in-session, deliberate path.)
 3. Keep `Owner` accurate so the receiving tool reads a self-contained, current registry.
 
 ## Do not
 
 - Touch architecture docs — that's `doc-update-project`.
 - Hand-maintain the plan↔commit map when the script can derive it from `git log`.
+- Hand `git mv` for lifecycle moves — use `scripts/doc-lifecycle.mjs` / the lib.
 - Drop the date or the "use instead" half of a lesson — both are required.
 - Put catalog/ownership content in `PLANS.md` — that belongs in `docs/README.md` (project class). If the catalog looks stale, prompt the user to run `doc-update-project`.

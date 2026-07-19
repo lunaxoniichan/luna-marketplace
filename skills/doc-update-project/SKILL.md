@@ -19,6 +19,25 @@ the doc obligation — agent docs (PLANS/TODO) belong to `doc-update-agent`. Nev
 | `docs/DESIGN_SYSTEM.md` | tokens, components, or UI conventions changed |
 | `docs/api/*` | endpoint, contract, or request/response shape changed |
 
+## Lifecycle promote / supersede (canonical procedure)
+
+When a concept is adopted or an official design is replaced, **use the shared lib — never hand
+`git mv`**. Contract: `docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md`.
+
+| Situation | Op | Command |
+|-----------|-----|---------|
+| Concept adopted | `promote` | `node scripts/doc-lifecycle.mjs promote docs/pre-official/.../<file>.md` |
+| Design superseded | `supersede` | `node scripts/doc-lifecycle.mjs supersede docs/specs/<old>.md --superseded-by docs/specs/<new>.md` |
+
+Promote sets `lifecycle: official` + `status: active` and moves into the mapped official folder.
+Supersede requires an existing `superseded_by` target, sets `status: superseded`, and moves to
+`docs/post-official/legacy/` (or `completed-plans/` for `type: plan`).
+
+Same lib as Studio (`planLifecycleMove` / `applyLifecycleMove`) — byte-identical results.
+Drift check: `node scripts/doc-lifecycle.mjs --check`.
+
+Plan archival (`plans/` → `completed-plans/`) is owned by **`doc-update-agent`**.
+
 ## Process
 
 1. Identify what changed this session (`git diff`, session edits).
@@ -35,4 +54,5 @@ the doc obligation — agent docs (PLANS/TODO) belong to `doc-update-agent`. Nev
 - Touch agent docs (`PLANS.md`, `TODO.md`) — that's `doc-update-agent`.
 - Write specs here — design specs live in `docs/specs/`.
 - Document code that doesn't exist yet (no speculative docs).
+- Hand `git mv` for lifecycle moves — use `scripts/doc-lifecycle.mjs` / the lib.
 - Leave the doc class boundary blurred — one fact, one canonical doc.

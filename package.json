@@ -9,6 +9,8 @@
     "test:fleet-sync": "node tests/scripts/fleet-sync.test.mjs",
     "test:vault-crud": "node tests/vault-crud/vault-crud.test.mjs",
     "test:vault-gateway": "node tests/studio/vault-gateway.test.mjs",
+    "test:doc-lifecycle": "node tests/scripts/doc-lifecycle.test.mjs",
+    "test:plans-registry": "node tests/scripts/build-plans-registry.test.mjs",
     "test:studio": "node tests/studio/studio.test.js",
     "build:plugin-graph": "node scripts/build-plugin-graph.mjs",
     "build:docs-index": "node scripts/build-docs-index.mjs",

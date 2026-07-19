@@ -13,6 +13,8 @@ import {
   vaultSyncApply,
   vaultSyncPreviewMany,
   vaultSyncApplyMany,
+  vaultLifecyclePreview,
+  vaultLifecycleApply,
   assertVaultId,
   assertBodySize,
   assertCtxAllowed,
@@ -20,6 +22,12 @@ import {
   MAX_BODY_BYTES,
 } from '../../scripts/lib/vault-gateway.mjs';
 import { sha256 } from '../../scripts/lib/vault-crud.mjs';
+import { serializeFrontmatter, parseFrontmatter } from '../../scripts/lib/frontmatter.mjs';
+import {
+  planLifecycleMove,
+  applyLifecycleMove,
+} from '../../scripts/lib/doc-lifecycle.mjs';
+import { resolveVaultRoot } from '../../scripts/lib/vault-crud.mjs';
 
 const root = mkdtempSync(join(tmpdir(), 'vault-gateway-'));
 let failed = 0;
@@ -341,6 +349,121 @@ test('error normalization redacts absolute paths', () => {
   const e = normalizeError(new Error('failed at /home/l/secret/repo/file.md'));
   assert.ok(!e.message.includes('/home/l'));
   assert.match(e.message, /<path>/);
+});
+
+test('vaultLifecyclePreview / Apply promote + PLAN_STALE', () => {
+  for (const d of [
+    'docs/pre-official/research',
+    'docs/specs',
+    'docs/post-official/legacy',
+  ]) {
+    mkdirSync(join(root, d), { recursive: true });
+  }
+  const rel = 'docs/pre-official/research/gw-promote.md';
+  const fm = {
+    title: 'GW Promote',
+    scope: 'project',
+    type: 'spec',
+    lifecycle: 'pre_official',
+    status: 'draft',
+    keywords: [],
+    related: [],
+    updated: '2020-01-01',
+  };
+  writeFileSync(join(root, rel), serializeFrontmatter(fm, 'body\n'));
+  git(['add', '--', rel]);
+  git(['commit', '-m', 'docs: gw fixture']);
+
+  const preview = vaultLifecyclePreview(
+    { vaultId: 'gw-proj', relPath: rel, op: 'promote' },
+    ctx,
+  );
+  assert.equal(preview.ok, true, JSON.stringify(preview.error));
+  assert.equal(preview.dest, 'docs/specs/gw-promote.md');
+  assert.ok(preview.planToken);
+
+  const stale = vaultLifecycleApply(
+    {
+      vaultId: 'gw-proj',
+      relPath: rel,
+      op: 'promote',
+      planToken: 'a'.repeat(64),
+    },
+    ctx,
+  );
+  assert.equal(stale.ok, false);
+  assert.equal(stale.error.code, 'PLAN_STALE');
+
+  const applied = vaultLifecycleApply(
+    {
+      vaultId: 'gw-proj',
+      relPath: rel,
+      op: 'promote',
+      planToken: preview.planToken,
+    },
+    ctx,
+  );
+  assert.equal(applied.ok, true, JSON.stringify(applied.error));
+  assert.equal(existsSync(join(root, rel)), false);
+  assert.equal(existsSync(join(root, 'docs/specs/gw-promote.md')), true);
+});
+
+test('gateway op and lib apply yield byte-identical results', () => {
+  mkdirSync(join(root, 'docs/pre-official/research'), { recursive: true });
+  mkdirSync(join(root, 'docs/specs'), { recursive: true });
+  const rel = 'docs/pre-official/research/parity-gw.md';
+  const fm = {
+    title: 'Parity GW',
+    scope: 'project',
+    type: 'spec',
+    lifecycle: 'pre_official',
+    status: 'draft',
+    keywords: [],
+    related: [],
+    updated: '2020-01-01',
+  };
+  writeFileSync(join(root, rel), serializeFrontmatter(fm, 'same body\n'));
+  git(['add', '--', rel]);
+  git(['commit', '-m', 'docs: parity fixture']);
+
+  // Snapshot bytes via gateway apply on a copy path — use second file for lib
+  const relLib = 'docs/pre-official/research/parity-lib.md';
+  writeFileSync(join(root, relLib), serializeFrontmatter(fm, 'same body\n'));
+  git(['add', '--', relLib]);
+  git(['commit', '-m', 'docs: parity lib fixture']);
+
+  const preview = vaultLifecyclePreview(
+    { vaultId: 'gw-proj', relPath: rel, op: 'promote' },
+    ctx,
+  );
+  assert.equal(preview.ok, true);
+  const gw = vaultLifecycleApply(
+    { vaultId: 'gw-proj', relPath: rel, op: 'promote', planToken: preview.planToken },
+    ctx,
+  );
+  assert.equal(gw.ok, true, JSON.stringify(gw.error));
+
+  const vault = resolveVaultRoot(root, {
+    pluginRoot: root,
+    registry: { version: 1, projects: [] },
+  });
+  const planned = planLifecycleMove({ vault, relPath: relLib, op: 'promote' });
+  assert.equal(planned.ok, true);
+  const lib = applyLifecycleMove({ vault, plan: planned.plan });
+  assert.equal(lib.ok, true, JSON.stringify(lib.error));
+
+  const gwBytes = readFileSync(join(root, 'docs/specs/parity-gw.md'), 'utf8');
+  const libBytes = readFileSync(join(root, 'docs/specs/parity-lib.md'), 'utf8');
+  // Same FM fields (ignore updated date stamp race by comparing structure)
+  const g = parseFrontmatter(gwBytes);
+  const l = parseFrontmatter(libBytes);
+  assert.equal(g.data.lifecycle, l.data.lifecycle);
+  assert.equal(g.data.status, l.data.status);
+  assert.equal(g.data.title, l.data.title);
+  assert.equal(g.body, l.body);
+  assert.equal(gw.dest.replace(/[^/]+$/, ''), lib.dest.replace(/[^/]+$/, ''));
+  assert.match(gw.dest, /^docs\/specs\//);
+  assert.match(lib.dest, /^docs\/specs\//);
 });
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');
