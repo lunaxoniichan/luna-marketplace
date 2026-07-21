@@ -29,5 +29,7 @@ export {
   vaultGraphMemorySearch,
   vaultGraphMemoryRebuild,
   vaultGraphMemoryTool,
+  vaultContextPackPreview,
+  vaultContextPackBuild,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

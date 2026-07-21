@@ -15,6 +15,7 @@
 - docs/specs/2026-07-18-sharks-loop-convergence-oracle.md — Sharks-Loop — convergence oracle for the coding-agent loop (sharks-loop, verification, convergence)
 
 ## Pre-official
+- docs/pre-official/research/2026-07-19-graph-memory-system-design.md — Graph Memory System Design Decisions (graph-memory, luna-studio, phase-3)
 - docs/pre-official/research/2026-07-19-context-engineering-coding-agents.md — Context Engineering for Coding Agents (context-engineering, memory, graphiti)
 
 ## Code structure

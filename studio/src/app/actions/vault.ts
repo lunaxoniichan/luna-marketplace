@@ -23,6 +23,8 @@ import {
   vaultGraphMemoryStatus as graphMemoryStatus,
   vaultGraphMemorySearch as graphMemorySearch,
   vaultGraphMemoryRebuild as graphMemoryRebuild,
+  vaultContextPackPreview as contextPackPreview,
+  vaultContextPackBuild as contextPackBuild,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -96,6 +98,14 @@ export async function vaultGraphMemorySearch(input: Record<string, unknown>) {
 
 export async function vaultGraphMemoryRebuild(input: Record<string, unknown>) {
   return graphMemoryRebuild(input);
+}
+
+export async function vaultContextPackPreview(input: Record<string, unknown>) {
+  return contextPackPreview(input);
+}
+
+export async function vaultContextPackBuild(input: Record<string, unknown>) {
+  return contextPackBuild(input);
 }
 
 export async function listSyncTargets() {

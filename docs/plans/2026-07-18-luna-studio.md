@@ -40,7 +40,10 @@ Docker optional/plugin-only. Fixtures opt-in via `LUNA_STUDIO_FIXTURES=1` / `npm
 **Status:** DONE (v1) 2026-07-19 — contract ACTIVE; file-JSON index + fail-open embeddings + read-only query; Studio Graph memory tab. Graphiti/FalkorDB adapters deferred (T11).
 
 ### phase-4 — Context-engineering features
-Context pack, correction inbox, drift alerts, cross-project reuse, ADR why-view.
+**Status:** 4.0 ACTIVE · **4.1 S1a Context Pack builder** implemented (awaiting review gate).
+Contract: `docs/specs/2026-07-20-context-pack-contract.md` (`status: active`).
+Next: 4.2 drift → 4.3 inbox → 4.4 reuse+ADR.
+Roadmap: `~/.claude/plans/please-review-what-we-wondrous-lake.md`.
 
 ### phase-5 — Lifecycle ownership + registry polish
 Completed plans table; doc skills own promote/demote; Obsidian export note; OAM follow-up.

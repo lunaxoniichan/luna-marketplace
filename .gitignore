@@ -26,3 +26,5 @@ studio/tsconfig.tsbuildinfo
 docs/generated/knowledge.json
 docs/generated/graph-memory/
 **/docs/generated/graph-memory/
+docs/generated/context-packs/
+**/docs/generated/context-packs/

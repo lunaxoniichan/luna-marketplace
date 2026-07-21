@@ -36,6 +36,7 @@ flowchart LR
 | [`pre-official/audits/README.md`](pre-official/audits/README.md) | **spec** — README | pre_official | — |
 | [`pre-official/README.md`](pre-official/README.md) | **reference** — README | pre_official | — |
 | [`pre-official/research/2026-07-19-context-engineering-coding-agents.md`](pre-official/research/2026-07-19-context-engineering-coding-agents.md) | **research** — Context Engineering for Coding Agents | pre_official | context-engineering, memory, graphiti, mcp, local-ai, luna-studio |
+| [`pre-official/research/2026-07-19-graph-memory-system-design.md`](pre-official/research/2026-07-19-graph-memory-system-design.md) | **decision** — Graph Memory System Design Decisions | pre_official | graph-memory, luna-studio, phase-3, context-engineering, mcp, local-ai |
 | [`pre-official/research/README.md`](pre-official/research/README.md) | **spec** — README | pre_official | — |
 | [`PROJECT_STRUCTURES.md`](PROJECT_STRUCTURES.md) | **architecture** — Luna Agent Kit — Project Structure | official | structure, layout, skills, hooks |
 | [`README.md`](README.md) | **reference** — README | official | — |
@@ -48,6 +49,7 @@ flowchart LR
 | [`specs/2026-07-19-doc-lifecycle-promote-demote-contract.md`](specs/2026-07-19-doc-lifecycle-promote-demote-contract.md) | **spec** — Doc lifecycle — promote / demote / supersede contract | official | lifecycle, promote, demote, supersede, vault, studio, T4 |
 | [`specs/2026-07-19-fleet-sync-contract.md`](specs/2026-07-19-fleet-sync-contract.md) | **spec** — Fleet sync — plugin rules/ → all registry projects | official | fleet, sync-agent-views, rules, registry, T5 |
 | [`specs/2026-07-19-graph-memory-backend-contract.md`](specs/2026-07-19-graph-memory-backend-contract.md) | **spec** — Graph memory backend — rebuildable KG + embeddings contract | official | graph-memory, context-engineering, graphiti, embeddings, mcp, local-ai, phase-3 |
+| [`specs/2026-07-20-context-pack-contract.md`](specs/2026-07-20-context-pack-contract.md) | **spec** — Context Pack + Phase 4 context-engineering contract | official | context-pack, drift, correction-inbox, reuse-search, adr, phase-4, context-engineering |
 | [`specs/code-intelligence-tools-comparison.md`](specs/code-intelligence-tools-comparison.md) | **spec** — GitNexus vs codebase-memory-mcp vs CodeGraph | official | gitnexus, jscpd, code-intelligence |
 | [`specs/monorepo-refactor-playbook.md`](specs/monorepo-refactor-playbook.md) | **spec** — Monorepo + submodule refactor playbook | official | monorepo, submodule, refactor, jscpd |
 | [`specs/vibe-rules-dedup-handoff.md`](specs/vibe-rules-dedup-handoff.md) | **spec** — vibe-rules dedup + ECC retirement — handoff | official | vibe-rules, ecc, handoff |
@@ -84,7 +86,7 @@ flowchart LR
 <!-- luna:generated:health:start -->
 ### Generated health
 
-- Oversize alert (>500): **1** · warn (>300): **6**
+- Oversize alert (>500): **1** · warn (>300): **7**
 - Broken `related` / wikilinks: **2**
 - Missing front-matter (spec/plan/decision/memory): **0**
 

@@ -29,6 +29,11 @@ import {
   rebuildGraphMemory,
   invokeGraphMemoryTool,
 } from './graph-memory.mjs';
+import {
+  buildContextPack,
+  previewContextPack,
+  PACK_TYPES,
+} from './context-pack.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -68,6 +73,13 @@ const GRAPH_MEMORY_KEYS = new Set([
   'limit',
   'tool',
   'rebuild',
+]);
+const CONTEXT_PACK_KEYS = new Set([
+  'vaultId',
+  'task',
+  'packType',
+  'tokenBudget',
+  'scope',
 ]);
 
 /** @type {Set<string>} */
@@ -896,6 +908,68 @@ export function vaultGraphMemoryTool(input, ctx = {}) {
       },
       { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
     );
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Context Pack preview/build (Phase 4.1).
+ * Read-only w.r.t. canonical sources; build writes only gitignored pack index.
+ * Contract: docs/specs/2026-07-20-context-pack-contract.md
+ */
+export async function vaultContextPackPreview(input, ctx = {}) {
+  const g = gate(input, CONTEXT_PACK_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const packType = String(input.packType || 'planning');
+    if (!PACK_TYPES.includes(packType)) {
+      return { ok: false, error: { code: 'PACK_TYPE', message: `Invalid packType: ${packType}` } };
+    }
+    const result = await previewContextPack({
+      vaultId: String(input.vaultId),
+      task: String(input.task || ''),
+      packType,
+      tokenBudget: Number(input.tokenBudget || 4000),
+      scope: String(input.scope || 'vault'),
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return { ok: true, vaultId: result.vaultId, manifest: result.manifest };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+export async function vaultContextPackBuild(input, ctx = {}) {
+  const g = gate(input, CONTEXT_PACK_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const packType = String(input.packType || 'planning');
+    if (!PACK_TYPES.includes(packType)) {
+      return { ok: false, error: { code: 'PACK_TYPE', message: `Invalid packType: ${packType}` } };
+    }
+    const result = await buildContextPack({
+      vaultId: String(input.vaultId),
+      task: String(input.task || ''),
+      packType,
+      tokenBudget: Number(input.tokenBudget || 4000),
+      scope: String(input.scope || 'vault'),
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return {
+      ok: true,
+      vaultId: result.vaultId,
+      manifest: result.manifest,
+      packId: result.manifest?.pack_id,
+    };
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }
