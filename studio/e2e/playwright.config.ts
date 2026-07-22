@@ -3,9 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright smoke config for Luna Studio.
  * Runs against the dev server so the interactive VaultWorkspace + Phase-4 tabs are
- * exercised, not just overview render. (Production `next build` currently can't bundle
- * the plugin's external scripts/lib/*.mjs via Turbopack — tracked separately; the dev
- * server resolves them fine, same as `npm run studio`.)
+ * exercised, not just overview render. Dev is the primary Studio mode (`npm run studio`);
+ * production `next build` has a known external-module limitation (see next.config.ts).
  *
  * Prereqs (browser env): `npx playwright install chromium`.
  * Run: `npm run test:e2e` (from studio/) — boots the dev server on :3900 automatically.
