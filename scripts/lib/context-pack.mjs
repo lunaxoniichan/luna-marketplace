@@ -5,19 +5,21 @@
  * Reuses resolveVaultRoot / invokeGraphMemoryTool — no second retriever or wall.
  * Writes only under docs/generated/context-packs/ (gitignored rebuildable index).
  */
-import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
   writeFileSync,
   rmSync,
+  readFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { resolveVaultRoot } from './vault-crud.mjs';
 import {
   invokeGraphMemoryTool,
   rebuildGraphMemory,
+  sha256Text,
 } from './graph-memory.mjs';
+import { parseFrontmatter } from './frontmatter.mjs';
 
 export const PACK_DIR_REL = join('docs', 'generated', 'context-packs');
 export const PACK_TYPES = Object.freeze(['planning', 'implementation', 'review']);
@@ -49,10 +51,6 @@ const TYPE_KIND_BOOST = {
     memory: -0.1,
   },
 };
-
-function sha256Text(s) {
-  return createHash('sha256').update(String(s), 'utf8').digest('hex');
-}
 
 /**
  * Rough token estimate (chars/4) — good enough for budget truncation.
@@ -240,7 +238,7 @@ async function assemblePack(opts) {
   else if (gmStatus.embeddings === 'unavailable') lanes.embedding = 'unavailable';
 
   if (gmStatus.graphiti === 'ok') lanes.kg = 'ok';
-  else if (gmStatus.graph_backend === 'file-json') lanes.kg = 'ok'; // file-backed neighborhood available via index
+  else if (gmStatus.graph_backend === 'file-json') lanes.kg = 'file-json'; // store present; no distinct KG query in S1a
 
   // Default vault scope only — registry fan-out is Phase 4.4 product surface.
   // Even if caller passes registry, S1a still searches the authorized vault only
@@ -369,4 +367,174 @@ export async function buildContextPack(opts) {
  */
 export async function previewContextPack(opts) {
   return assemblePack({ ...opts, write: false });
+}
+
+/**
+ * Generated Claude/Cursor views must not false-positive drift (D3).
+ * Protected lessons files ARE canonical and remain drift-checkable.
+ * @param {string} relPath
+ */
+export function isGeneratedViewPath(relPath) {
+  const norm = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  if (norm === '.claude/rules/lessons.md') return false;
+  if (norm === '.cursor/rules/lessons.mdc') return false;
+  if (norm.startsWith('.claude/rules/')) return true;
+  if (norm.startsWith('.cursor/rules/')) return true;
+  return false;
+}
+
+/**
+ * Detect drift of a pack snapshot vs current vault filesystem + front-matter.
+ * Pure FS + FM — no local-ai / embeddings required (D6).
+ * Detection only; never mutates sources.
+ *
+ * @param {object} packManifest
+ * @param {{ pluginRoot?: string, registry?: object, vaultRoot?: string }} [opts]
+ * @returns {{ ok: boolean, drifts: Array<{ class: string, source_path: string, detail: string }>, checked_at: string }}
+ */
+export function detectPackDrift(packManifest, opts = {}) {
+  const manifest = packManifest || {};
+  const vaultId = String(manifest.vault_id || '');
+  if (!vaultId) {
+    const err = new Error('packManifest.vault_id required');
+    err.code = 'VAULT_ID';
+    throw err;
+  }
+
+  const vault = resolveVaultRoot(vaultId, {
+    pluginRoot: opts.pluginRoot,
+    registry: opts.registry,
+  });
+
+  const hashes = { ...(manifest.source_hashes || {}) };
+  for (const it of manifest.items || []) {
+    if (it?.source_path && it?.source_sha256 && !hashes[it.source_path]) {
+      hashes[it.source_path] = it.source_sha256;
+    }
+  }
+
+  /** @type {Array<{ class: string, source_path: string, detail: string }>} */
+  const drifts = [];
+
+  for (const [source_path, expectedHash] of Object.entries(hashes)) {
+    const norm = String(source_path).replace(/\\/g, '/');
+    if (isGeneratedViewPath(norm)) continue; // D3 false-positive guard
+
+    const abs = join(vault.root, norm);
+    if (!existsSync(abs)) {
+      drifts.push({
+        class: 'source-deleted',
+        source_path: norm,
+        detail: 'path missing from vault',
+      });
+      continue;
+    }
+
+    let text;
+    try {
+      text = readFileSync(abs, 'utf8');
+    } catch (e) {
+      drifts.push({
+        class: 'source-deleted',
+        source_path: norm,
+        detail: `unreadable: ${e.message}`,
+      });
+      continue;
+    }
+
+    const currentHash = sha256Text(text);
+    if (expectedHash && currentHash !== expectedHash) {
+      const isLesson =
+        norm === '.claude/rules/lessons.md' || norm === '.cursor/rules/lessons.mdc';
+      drifts.push({
+        class: isLesson ? 'stale-lesson' : 'source-changed',
+        source_path: norm,
+        detail: isLesson
+          ? 'lessons file hash changed'
+          : `source_sha256 mismatch (was ${String(expectedHash).slice(0, 8)}…)`,
+      });
+    }
+
+    const { data } = parseFrontmatter(text);
+    const status = String(data.status || '');
+    const lifecycle = String(data.lifecycle || '');
+    const type = String(data.type || '');
+
+    if (status === 'superseded' || data.superseded_by) {
+      drifts.push({
+        class: type === 'plan' || norm.includes('/plans/') ? 'superseded-plan' : 'source-changed',
+        source_path: norm,
+        detail: data.superseded_by
+          ? `superseded_by ${data.superseded_by}`
+          : 'status: superseded',
+      });
+    }
+
+    if (
+      lifecycle === 'post_official' ||
+      norm.includes('/post-official/') ||
+      norm.includes('/_archive/')
+    ) {
+      drifts.push({
+        class: 'archived',
+        source_path: norm,
+        detail: `lifecycle=${lifecycle || 'archive-path'}`,
+      });
+    }
+
+    // Verbatim lesson line-presence (no stable line IDs — D3/A3)
+    if (norm === '.claude/rules/lessons.md' || norm === '.cursor/rules/lessons.mdc') {
+      const item = (manifest.items || []).find((i) => i.source_path === norm);
+      const line = String(item?.excerpt || '').trim();
+      if (line && !text.includes(line)) {
+        if (!drifts.some((d) => d.source_path === norm && d.class === 'stale-lesson')) {
+          drifts.push({
+            class: 'stale-lesson',
+            source_path: norm,
+            detail: 'previously included lesson line text no longer present verbatim',
+          });
+        }
+      }
+    }
+  }
+
+  // Optional advisory: graph-memory index stale flags for included paths
+  try {
+    const statusOut = invokeGraphMemoryTool(
+      'graph_memory_status',
+      { vaultId },
+      { pluginRoot: opts.pluginRoot, registry: opts.registry },
+    );
+    if (statusOut?.status?.mode && statusOut.status.mode !== 'missing') {
+      const search = invokeGraphMemoryTool(
+        'search_context',
+        { vaultId, query: manifest.task || '', limit: 40 },
+        { pluginRoot: opts.pluginRoot, registry: opts.registry },
+      );
+      for (const hit of search.hits || []) {
+        if (!hashes[hit.source_path]) continue;
+        if (hit.stale && hit.source_sha256 && hashes[hit.source_path] !== hit.source_sha256) {
+          if (
+            !drifts.some(
+              (d) => d.source_path === hit.source_path && d.class === 'kg-hash-mismatch',
+            )
+          ) {
+            drifts.push({
+              class: 'kg-hash-mismatch',
+              source_path: hit.source_path,
+              detail: 'graph-memory reports stale / hash mismatch (advisory)',
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Index missing or tool error — advisory only; drift still returns FS/FM results
+  }
+
+  return {
+    ok: true,
+    drifts,
+    checked_at: new Date().toISOString(),
+  };
 }

@@ -31,5 +31,6 @@ export {
   vaultGraphMemoryTool,
   vaultContextPackPreview,
   vaultContextPackBuild,
+  vaultContextPackDrift,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

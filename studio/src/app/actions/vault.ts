@@ -25,6 +25,7 @@ import {
   vaultGraphMemoryRebuild as graphMemoryRebuild,
   vaultContextPackPreview as contextPackPreview,
   vaultContextPackBuild as contextPackBuild,
+  vaultContextPackDrift as contextPackDrift,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -106,6 +107,10 @@ export async function vaultContextPackPreview(input: Record<string, unknown>) {
 
 export async function vaultContextPackBuild(input: Record<string, unknown>) {
   return contextPackBuild(input);
+}
+
+export async function vaultContextPackDrift(input: Record<string, unknown>) {
+  return contextPackDrift(input);
 }
 
 export async function listSyncTargets() {

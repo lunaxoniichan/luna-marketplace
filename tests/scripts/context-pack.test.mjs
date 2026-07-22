@@ -22,6 +22,7 @@ import {
   buildContextPack,
   previewContextPack,
   wipeContextPacks,
+  detectPackDrift,
   PACK_DIR_REL,
   PACK_TYPES,
 } from '../../scripts/lib/context-pack.mjs';
@@ -413,6 +414,298 @@ await test('pack refuses unknown packType and missing vaultId', async () => {
         registry,
       }),
     /vaultId/i,
+  );
+});
+
+await test('drift: edit canonical source → source-changed; delete → source-deleted', async () => {
+  const { root, id, plugin, registry } = makeVault('drift-edit');
+  await rebuildGraphMemory({
+    vaultId: id,
+    pluginRoot: plugin,
+    registry,
+    embed: false,
+  });
+  const built = await buildContextPack({
+    vaultId: id,
+    task: 'system design architecture',
+    packType: 'planning',
+    tokenBudget: 4000,
+    pluginRoot: plugin,
+    registry,
+  });
+  assert.ok(built.manifest.items.some((i) => i.source_path.includes('SYSTEM_DESIGN')));
+
+  writeFileSync(
+    join(root, 'docs', 'SYSTEM_DESIGN.md'),
+    `---
+title: System Design
+lifecycle: official
+type: architecture
+status: active
+---
+
+# System Design
+
+CHANGED canonical content after pack build.
+`,
+  );
+
+  const drift = detectPackDrift(built.manifest, {
+    pluginRoot: plugin,
+    registry,
+  });
+  assert.equal(drift.ok, true);
+  assert.ok(
+    drift.drifts.some(
+      (d) => d.class === 'source-changed' && d.source_path.includes('SYSTEM_DESIGN'),
+    ),
+    `expected source-changed, got ${JSON.stringify(drift.drifts)}`,
+  );
+
+  rmSync(join(root, 'docs', 'SYSTEM_DESIGN.md'));
+  const driftDel = detectPackDrift(built.manifest, {
+    pluginRoot: plugin,
+    registry,
+  });
+  assert.ok(
+    driftDel.drifts.some(
+      (d) => d.class === 'source-deleted' && d.source_path.includes('SYSTEM_DESIGN'),
+    ),
+  );
+});
+
+await test('drift: freshly built pack with no edits reports no source drift (hash-basis guard)', async () => {
+  // False-confidence guard: if graph-memory's source_sha256 basis ever diverges from
+  // detectPackDrift's whole-file sha256Text, every clean pack would show phantom
+  // source-changed drift. Every other drift test edits first, so only this one catches it.
+  const { id, plugin, registry } = makeVault('drift-clean');
+  await rebuildGraphMemory({
+    vaultId: id,
+    pluginRoot: plugin,
+    registry,
+    embed: false,
+  });
+  const built = await buildContextPack({
+    vaultId: id,
+    task: 'system design architecture auth wall host-first planToken lesson',
+    packType: 'planning',
+    tokenBudget: 8000,
+    pluginRoot: plugin,
+    registry,
+  });
+  assert.ok(built.manifest.items.length >= 1, 'expected a non-empty pack to guard');
+  assert.ok(
+    Object.keys(built.manifest.source_hashes).length >= 1,
+    'expected tracked source hashes to guard',
+  );
+
+  // No filesystem mutation between build and drift check.
+  const drift = detectPackDrift(built.manifest, { pluginRoot: plugin, registry });
+  assert.equal(drift.ok, true);
+  const falsePositives = drift.drifts.filter(
+    (d) => d.class === 'source-changed' || d.class === 'source-deleted',
+  );
+  assert.deepEqual(
+    falsePositives,
+    [],
+    `clean pack must not drift; hash basis mismatch? got ${JSON.stringify(falsePositives)}`,
+  );
+});
+
+await test('drift: generated .claude/.cursor view churn MUST NOT false-positive', async () => {
+  const { root, id, plugin, registry } = makeVault('drift-gen');
+  mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+  mkdirSync(join(root, '.cursor', 'rules'), { recursive: true });
+  writeFileSync(
+    join(root, '.claude', 'rules', 'core.md'),
+    `# GENERATED — edit the canonical source (rules/), not this file\n<!-- luna:generated -->\nold\n`,
+  );
+  writeFileSync(
+    join(root, '.cursor', 'rules', 'core.mdc'),
+    `# GENERATED\n<!-- luna:generated -->\nold cursor\n`,
+  );
+
+  await rebuildGraphMemory({
+    vaultId: id,
+    pluginRoot: plugin,
+    registry,
+    embed: false,
+  });
+  const built = await buildContextPack({
+    vaultId: id,
+    task: 'system design architecture auth',
+    packType: 'planning',
+    tokenBudget: 4000,
+    pluginRoot: plugin,
+    registry,
+  });
+
+  // Poison: inject generated paths into manifest hashes as if they were tracked
+  const poisoned = {
+    ...built.manifest,
+    source_hashes: {
+      ...built.manifest.source_hashes,
+      '.claude/rules/core.md': 'deadbeef'.padEnd(64, '0'),
+      '.cursor/rules/core.mdc': 'cafebabe'.padEnd(64, '0'),
+    },
+    items: [
+      ...built.manifest.items,
+      {
+        source_path: '.claude/rules/core.md',
+        source_sha256: 'deadbeef'.padEnd(64, '0'),
+        source_kind: 'rule',
+      },
+      {
+        source_path: '.cursor/rules/core.mdc',
+        source_sha256: 'cafebabe'.padEnd(64, '0'),
+        source_kind: 'rule',
+      },
+    ],
+  };
+
+  writeFileSync(
+    join(root, '.claude', 'rules', 'core.md'),
+    `# GENERATED — edit the canonical source (rules/), not this file\n<!-- luna:generated -->\nCHANGED SYNC CHURN\n`,
+  );
+  writeFileSync(
+    join(root, '.cursor', 'rules', 'core.mdc'),
+    `# GENERATED\n<!-- luna:generated -->\nCHANGED SYNC CHURN\n`,
+  );
+
+  const drift = detectPackDrift(poisoned, { pluginRoot: plugin, registry });
+  assert.equal(drift.ok, true);
+  assert.ok(
+    !drift.drifts.some(
+      (d) =>
+        d.source_path === '.claude/rules/core.md' || d.source_path === '.cursor/rules/core.mdc',
+    ),
+    `generated-view churn must not flag drift: ${JSON.stringify(drift.drifts)}`,
+  );
+});
+
+await test('drift: superseded plan flags superseded-plan; works with local-ai down', async () => {
+  const { root, id, plugin, registry } = makeVault('drift-super');
+  await rebuildGraphMemory({
+    vaultId: id,
+    pluginRoot: plugin,
+    registry,
+    embed: false,
+  });
+  const built = await buildContextPack({
+    vaultId: id,
+    task: 'fix auth wall race planToken',
+    packType: 'implementation',
+    tokenBudget: 4000,
+    pluginRoot: plugin,
+    registry,
+  });
+  const planPath = 'docs/plans/2026-07-19-fix-auth.md';
+  assert.ok(
+    built.manifest.items.some((i) => i.source_path === planPath) ||
+      built.manifest.source_hashes[planPath],
+    'plan should be in pack for this query',
+  );
+
+  // Ensure plan is in hashes even if ranking dropped it — seed for lifecycle test
+  const hashes = { ...built.manifest.source_hashes };
+  if (!hashes[planPath]) {
+    const text = readFileSync(join(root, planPath), 'utf8');
+    const { createHash } = await import('node:crypto');
+    hashes[planPath] = createHash('sha256').update(text, 'utf8').digest('hex');
+  }
+
+  writeFileSync(
+    join(root, planPath),
+    `---
+title: Fix auth wall race
+lifecycle: post_official
+type: plan
+status: superseded
+superseded_by: docs/plans/2026-07-20-new.md
+---
+
+# Fix auth wall race
+
+Superseded.
+`,
+  );
+
+  const drift = detectPackDrift(
+    { ...built.manifest, source_hashes: hashes },
+    { pluginRoot: plugin, registry },
+  );
+  assert.equal(drift.ok, true);
+  assert.ok(
+    drift.drifts.some(
+      (d) =>
+        d.source_path === planPath &&
+        (d.class === 'superseded-plan' || d.class === 'archived' || d.class === 'source-changed'),
+    ),
+    `expected superseded/archived/changed for plan, got ${JSON.stringify(drift.drifts)}`,
+  );
+});
+
+await test('drift: stale-lesson on lessons file hash change; verbatim line-presence', async () => {
+  const { root, id, plugin, registry } = makeVault('drift-lesson');
+  mkdirSync(join(root, '.cursor', 'rules'), { recursive: true });
+  const lessonLine =
+    '- AVOID rewriting auth without planToken — DO re-derive planToken (2026-07-19)\n';
+  writeFileSync(join(root, '.claude', 'rules', 'lessons.md'), lessonLine);
+  writeFileSync(join(root, '.cursor', 'rules', 'lessons.mdc'), lessonLine);
+
+  await rebuildGraphMemory({
+    vaultId: id,
+    pluginRoot: plugin,
+    registry,
+    embed: false,
+  });
+  const built = await buildContextPack({
+    vaultId: id,
+    task: 'planToken auth rewrite lesson',
+    packType: 'review',
+    tokenBudget: 4000,
+    pluginRoot: plugin,
+    registry,
+  });
+
+  const lessonPath = '.claude/rules/lessons.md';
+  const { createHash } = await import('node:crypto');
+  const oldHash = createHash('sha256')
+    .update(readFileSync(join(root, lessonPath), 'utf8'), 'utf8')
+    .digest('hex');
+
+  const manifest = {
+    ...built.manifest,
+    source_hashes: { ...built.manifest.source_hashes, [lessonPath]: oldHash },
+    items: [
+      ...built.manifest.items.filter((i) => i.source_path !== lessonPath),
+      {
+        source_path: lessonPath,
+        source_kind: 'lesson',
+        source_sha256: oldHash,
+        excerpt: lessonLine.trim(),
+        title: 'lessons',
+      },
+    ],
+  };
+
+  writeFileSync(
+    join(root, lessonPath),
+    '- AVOID something else entirely — DO prefer a different approach (2026-07-22)\n',
+  );
+  writeFileSync(
+    join(root, '.cursor', 'rules', 'lessons.mdc'),
+    '- AVOID something else entirely — DO prefer a different approach (2026-07-22)\n',
+  );
+
+  const drift = detectPackDrift(manifest, { pluginRoot: plugin, registry });
+  assert.ok(
+    drift.drifts.some(
+      (d) =>
+        d.source_path === lessonPath &&
+        (d.class === 'stale-lesson' || d.class === 'source-changed'),
+    ),
+    `expected stale-lesson/source-changed, got ${JSON.stringify(drift.drifts)}`,
   );
 });
 

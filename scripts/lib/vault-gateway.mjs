@@ -32,6 +32,7 @@ import {
 import {
   buildContextPack,
   previewContextPack,
+  detectPackDrift,
   PACK_TYPES,
 } from './context-pack.mjs';
 
@@ -81,6 +82,7 @@ const CONTEXT_PACK_KEYS = new Set([
   'tokenBudget',
   'scope',
 ]);
+const CONTEXT_PACK_DRIFT_KEYS = new Set(['vaultId', 'manifest']);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -970,6 +972,36 @@ export async function vaultContextPackBuild(input, ctx = {}) {
       manifest: result.manifest,
       packId: result.manifest?.pack_id,
     };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Drift detection only — no writes. Manifest must match vaultId.
+ */
+export function vaultContextPackDrift(input, ctx = {}) {
+  const g = gate(input, CONTEXT_PACK_DRIFT_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const manifest = input.manifest;
+    if (!manifest || typeof manifest !== 'object') {
+      return { ok: false, error: { code: 'MANIFEST', message: 'manifest object required' } };
+    }
+    if (manifest.vault_id && String(manifest.vault_id) !== String(input.vaultId)) {
+      return {
+        ok: false,
+        error: { code: 'VAULT_MISMATCH', message: 'manifest.vault_id does not match vaultId' },
+      };
+    }
+    const result = detectPackDrift(
+      { ...manifest, vault_id: String(input.vaultId) },
+      { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
+    );
+    return { ok: true, vaultId: String(input.vaultId), ...result };
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   vaultContextPackBuild,
   vaultContextPackPreview,
+  vaultContextPackDrift,
 } from "@/app/actions/vault";
 
 type PackItem = {
@@ -50,6 +51,9 @@ export function ContextPackPanel({
   );
   const [budget, setBudget] = useState(4000);
   const [manifest, setManifest] = useState<PackManifest | null>(null);
+  const [drifts, setDrifts] = useState<Array<{ class: string; source_path: string; detail: string }> | null>(
+    null,
+  );
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -58,6 +62,7 @@ export function ContextPackPanel({
     startTransition(async () => {
       setErr(null);
       setMsg(null);
+      setDrifts(null);
       const input = {
         vaultId,
         task,
@@ -86,6 +91,20 @@ export function ContextPackPanel({
           `Wrote pack ${(r as { packId?: string }).packId || m.pack_id} under docs/generated/context-packs/ (gitignored)`,
         );
       }
+    });
+  };
+
+  const checkDrift = () => {
+    if (!manifest) return;
+    startTransition(async () => {
+      setErr(null);
+      const r = await vaultContextPackDrift({ vaultId, manifest });
+      if (!r.ok) {
+        setDrifts(null);
+        setErr((r as { error?: { message?: string } }).error?.message || "drift check failed");
+        return;
+      }
+      setDrifts(((r as { drifts?: typeof drifts }).drifts || []) as NonNullable<typeof drifts>);
     });
   };
 
@@ -154,10 +173,36 @@ export function ContextPackPanel({
         >
           Build
         </button>
+        <button
+          type="button"
+          className="rounded border border-amber-800/80 px-3 py-1 text-sm text-amber-300/90 disabled:opacity-40"
+          disabled={pending || !manifest}
+          onClick={checkDrift}
+        >
+          Check drift
+        </button>
       </div>
 
       {err && <p className="text-sm text-rose-400">{err}</p>}
       {msg && <p className="text-sm text-emerald-400">{msg}</p>}
+
+      {drifts && (
+        <div className="rounded border border-amber-900/50 bg-amber-950/20 p-3 text-sm">
+          <h4 className="text-amber-200">Drift ({drifts.length})</h4>
+          {drifts.length === 0 ? (
+            <p className="mt-1 text-xs text-slate-400">No drift — pack sources still match</p>
+          ) : (
+            <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-amber-100/90">
+              {drifts.map((d, i) => (
+                <li key={`${d.source_path}:${d.class}:${i}`}>
+                  <span className="font-mono text-amber-300">{d.class}</span> · {d.source_path}
+                  <span className="text-slate-500"> — {d.detail}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {manifest && (
         <div className="space-y-3 rounded border border-slate-800 bg-slate-950/40 p-3">

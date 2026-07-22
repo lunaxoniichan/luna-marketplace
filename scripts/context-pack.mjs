@@ -11,10 +11,12 @@
  * docs/generated/context-packs/ (gitignored).
  */
 import { resolve, basename } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   buildContextPack,
   previewContextPack,
+  detectPackDrift,
   PACK_TYPES,
 } from './lib/context-pack.mjs';
 
@@ -35,6 +37,7 @@ function usage() {
   console.log(`Usage:
   node scripts/context-pack.mjs preview --vault <id> --task <text> --type <${PACK_TYPES.join('|')}> [--budget N]
   node scripts/context-pack.mjs build   --vault <id> --task <text> --type <${PACK_TYPES.join('|')}> [--budget N]
+  node scripts/context-pack.mjs drift   --vault <id> --pack <path-to-manifest.json>
 `);
 }
 
@@ -75,6 +78,18 @@ async function main() {
         scope,
         pluginRoot,
       });
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    if (cmd === 'drift') {
+      const packPath = argValue(args, '--pack');
+      if (!packPath) {
+        console.error(JSON.stringify({ ok: false, error: { code: 'PACK', message: '--pack required' } }));
+        process.exit(1);
+      }
+      const manifest = JSON.parse(readFileSync(resolve(packPath), 'utf8'));
+      if (!manifest.vault_id) manifest.vault_id = vaultId;
+      const result = detectPackDrift(manifest, { pluginRoot });
       console.log(JSON.stringify(result, null, 2));
       return;
     }
