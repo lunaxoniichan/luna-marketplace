@@ -46,7 +46,9 @@ Residual T-items (T7/T8/T12/T13) + Playwright smoke are fill-in; Phase 5 next.
 Roadmap: `~/.claude/plans/please-review-what-we-wondrous-lake.md`.
 
 ### phase-5 — Lifecycle ownership + registry polish
-Completed plans table; doc skills own promote/demote; Obsidian export note; OAM follow-up.
+**Status:** P5a completed-plans superseded links · P5b doc-update skills own lifecycle (single path) ·
+P5c Obsidian export design note. P5d prod `next build` diagnosed (config fix regresses dev) — real
+fix deferred (T14). OAM (T15) + Obsidian exporter (T16) deferred to backlog.
 
 ## Related
 - Narrower lifecycle-only plan (subsumed): `docs/plans/2026-07-18-doc-lifecycle-restructure.md`
