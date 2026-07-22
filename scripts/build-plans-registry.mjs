@@ -23,6 +23,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
+import { parseFrontmatter } from './lib/frontmatter.mjs';
 
 export const PLANS_FILE = 'docs/PLANS.md';
 export const COMPLETED_HEADING = '## Completed';
@@ -141,12 +142,26 @@ function rowActive(plan, g, h) {
   return `| ${h.spec} | ${plan} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`;
 }
 
-function rowCompleted(plan, currentPath, g, h) {
+function rowCompleted(root, plan, currentPath, g, h) {
   const phases = [...g.phases].sort().join(', ') || '—';
   const latest = g.commits[0];
   const lastCommit = `\`${latest.short}\` ${latest.date}`;
-  const status = currentPath ? 'done' : 'dangling';
-  return `| ${h.spec} | ${plan} | ${currentPath || '—'} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`;
+  let status = currentPath ? 'done' : 'dangling';
+  let currentCell = currentPath || '—';
+  // Distinguish a plan that was superseded (points to a successor) from one merely
+  // completed. Read-only front-matter of the archived file; falls back to 'done'.
+  if (currentPath) {
+    try {
+      const { data } = parseFrontmatter(readFileSync(join(root, currentPath), 'utf8'));
+      if (data && (data.status === 'superseded' || data.superseded_by)) {
+        status = 'superseded';
+        if (data.superseded_by) currentCell = `${currentPath} → ${String(data.superseded_by)}`;
+      }
+    } catch {
+      /* unreadable — keep 'done' */
+    }
+  }
+  return `| ${h.spec} | ${plan} | ${currentCell} | ${phases} | ${h.owner} | ${lastCommit} | ${status} | ${h.resume} |`;
 }
 
 /**
@@ -176,7 +191,7 @@ export function buildRegistryMarkdown(root, commits, human) {
     const h = human.get(plan) || { spec: '—', owner: '—', resume: '—' };
     const current = resolvePlanCurrentPath(root, plan);
     if (current && current.startsWith(COMPLETED_DIR + '/')) {
-      completedRows.push(rowCompleted(plan, current, g, h));
+      completedRows.push(rowCompleted(root, plan, current, g, h));
     } else if (!current) {
       // dangling — show in Active with status dangling so it's visible
       const phases = [...g.phases].sort().join(', ') || '—';

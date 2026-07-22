@@ -94,6 +94,21 @@ try {
     assert.match(completedTable, /completed-plans\/fixture\.md/);
     assert.ok(existsSync(join(root, 'docs/post-official/completed-plans/fixture.md')));
   });
+
+  test('completed row shows superseded status + successor link (P5a)', () => {
+    // Give the archived plan superseded front-matter.
+    writeFileSync(
+      join(root, 'docs/post-official/completed-plans/fixture.md'),
+      `---\ntitle: fixture\ntype: plan\nlifecycle: post_official\nstatus: superseded\nsuperseded_by: docs/plans/successor.md\n---\n\n# plan\n`,
+    );
+    const commits = [
+      { short: 'abc1234', date: '2026-07-19', subject: 'feat: start', plan: logicalId, phase: 'phase-1' },
+    ];
+    const md = buildRegistryMarkdown(root, commits, new Map());
+    const completedTable = md.slice(md.indexOf(COMPLETED_HEADING));
+    assert.match(completedTable, /superseded/);
+    assert.match(completedTable, /docs\/plans\/successor\.md/);
+  });
 } finally {
   rmSync(root, { recursive: true, force: true });
 }
