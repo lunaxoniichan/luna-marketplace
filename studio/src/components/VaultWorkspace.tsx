@@ -75,6 +75,7 @@ export function VaultWorkspace({
   const [wikis, setWikis] = useState<WikiTarget[]>([]);
   const [wikiQ, setWikiQ] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [planHint, setPlanHint] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
@@ -250,6 +251,7 @@ export function VaultWorkspace({
     if (!selected || !lifecycleSurface) return;
     setErr(null);
     setMsg(null);
+    setPlanHint(null);
     setLifecyclePreview(null);
     startTransition(async () => {
       const r = await vaultLifecyclePreview({
@@ -299,6 +301,17 @@ export function VaultWorkspace({
       const dest = (r as { dest: string }).dest;
       setMsg(
         `Lifecycle ${lifecyclePreview.op} → ${dest} @ ${(r as { commitSha?: string }).commitSha?.slice(0, 7)}`,
+      );
+      // T8: archiving a plan leaves docs/PLANS.md stale — the registry rebuild is a
+      // SEPARATE, no-trailer commit (build-plans-registry re-derives from git). The UI
+      // only hints; it never auto-runs or auto-commits.
+      const archivedPlan =
+        fm.type === "plan" &&
+        (lifecyclePreview.op === "demote" || lifecyclePreview.op === "supersede");
+      setPlanHint(
+        archivedPlan
+          ? "Plan archived — docs/PLANS.md is now stale. Run `node scripts/build-plans-registry.mjs` and commit it separately (no `Plan:` trailer)."
+          : null,
       );
       setLifecyclePreview(null);
       refreshList();
@@ -599,6 +612,11 @@ export function VaultWorkspace({
               <p className="text-sm text-amber-300">{warnings.join(" · ")}</p>
             )}
             {msg && <p className="text-sm text-emerald-300">{msg}</p>}
+            {planHint && (
+              <p className="rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+                {planHint}
+              </p>
+            )}
             {err && <p className="text-sm text-red-300">{err}</p>}
           </div>
         </div>
