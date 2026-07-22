@@ -17,6 +17,7 @@ import { DedupePanel } from "@/components/DedupePanel";
 import { GraphMemoryPanel } from "@/components/GraphMemoryPanel";
 import { ContextPackPanel } from "@/components/ContextPackPanel";
 import { CorrectionInboxPanel } from "@/components/CorrectionInboxPanel";
+import { ReusePanel } from "@/components/ReusePanel";
 
 type WikiTarget = { slug: string; path: string; title: string };
 
@@ -60,7 +61,7 @@ export function VaultWorkspace({
   const rulesReadOnly = !isPluginVault;
 
   const [tab, setTab] = useState<
-    "memory" | "rules" | "docs" | "sync" | "dedupe" | "graph" | "pack" | "corrections"
+    "memory" | "rules" | "docs" | "sync" | "dedupe" | "graph" | "pack" | "corrections" | "reuse"
   >("memory");
   const [lists, setLists] = useState<{ rules: string[]; memory: string[]; docs: string[] }>({
     rules: [],
@@ -324,6 +325,7 @@ export function VaultWorkspace({
               ["graph", "Graph memory"],
               ["pack", "Context pack"],
               ["corrections", "Corrections"],
+              ["reuse", "Reuse & ADR"],
               ["sync", "Regenerate views"],
             ] as const
           ).map(([id, label]) => (
@@ -417,6 +419,8 @@ export function VaultWorkspace({
         />
       ) : tab === "corrections" ? (
         <CorrectionInboxPanel vaultId={vaultId} />
+      ) : tab === "reuse" ? (
+        <ReusePanel vaultId={vaultId} />
       ) : (
         <div className="grid gap-4 md:grid-cols-[220px_1fr]">
           <div className="space-y-2">

@@ -29,6 +29,8 @@ import {
   vaultCorrectionCandidates as correctionCandidates,
   vaultCorrectionAccept as correctionAccept,
   vaultCorrectionReject as correctionReject,
+  vaultReuseSearch as reuseSearch,
+  vaultAdrDecisions as adrDecisions,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -126,6 +128,14 @@ export async function vaultCorrectionAccept(input: Record<string, unknown>) {
 
 export async function vaultCorrectionReject(input: Record<string, unknown>) {
   return correctionReject(input);
+}
+
+export async function vaultReuseSearch(input: Record<string, unknown>) {
+  return reuseSearch(input);
+}
+
+export async function vaultAdrDecisions(input: Record<string, unknown>) {
+  return adrDecisions(input);
 }
 
 export async function listSyncTargets() {

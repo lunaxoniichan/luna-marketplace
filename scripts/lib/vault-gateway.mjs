@@ -40,6 +40,7 @@ import {
   acceptCorrection,
   rejectCorrection,
 } from './correction-inbox.mjs';
+import { reuseSearch, listAdrDecisions } from './reuse-search.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -97,6 +98,8 @@ const CORRECTION_ACCEPT_KEYS = new Set([
   'applies_to',
 ]);
 const CORRECTION_REJECT_KEYS = new Set(['vaultId', 'candidateId']);
+const REUSE_SEARCH_KEYS = new Set(['vaultId', 'query', 'scope', 'limit']);
+const ADR_KEYS = new Set(['vaultId']);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -1083,6 +1086,51 @@ export function vaultCorrectionReject(input, ctx = {}) {
     const out = rejectCorrection({
       vaultId: String(input.vaultId),
       candidateId: input.candidateId ? String(input.candidateId) : undefined,
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return out;
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Cross-project reuse search (read-only). Default scope vault; registry is explicit.
+ */
+export function vaultReuseSearch(input, ctx = {}) {
+  const g = gate(input, REUSE_SEARCH_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const out = reuseSearch({
+      vaultId: String(input.vaultId),
+      query: String(input.query || ''),
+      scope: input.scope ? String(input.scope) : 'vault',
+      limit: input.limit != null ? Number(input.limit) : undefined,
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return out;
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * ADR why-view — read-only list of docs/decisions/* with governed links.
+ */
+export function vaultAdrDecisions(input, ctx = {}) {
+  const g = gate(input, ADR_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const out = listAdrDecisions({
+      vaultId: String(input.vaultId),
       pluginRoot: ctx.pluginRoot ?? pluginRoot(),
       registry: ctx.registry,
     });

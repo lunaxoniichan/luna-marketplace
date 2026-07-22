@@ -35,5 +35,7 @@ export {
   vaultCorrectionCandidates,
   vaultCorrectionAccept,
   vaultCorrectionReject,
+  vaultReuseSearch,
+  vaultAdrDecisions,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";
