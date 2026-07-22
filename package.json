@@ -15,6 +15,7 @@
     "test:context-pack": "node tests/scripts/context-pack.test.mjs",
     "test:correction-inbox": "node tests/scripts/correction-inbox.test.mjs",
     "test:reuse-search": "node tests/scripts/reuse-search.test.mjs",
+    "test:obsidian-export": "node tests/scripts/obsidian-export.test.mjs",
     "test:plans-registry": "node tests/scripts/build-plans-registry.test.mjs",
     "test:studio": "node tests/studio/studio.test.js",
     "build:plugin-graph": "node scripts/build-plugin-graph.mjs",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-22T12:38:43.271Z",
+  "generated_at": "2026-07-22T22:42:20.058Z",
   "root": "luna-marketplace",
   "counts": {
     "docs": 41,
@@ -795,7 +795,7 @@
       "scope": "project",
       "type": "spec",
       "lifecycle": "official",
-      "status": "draft",
+      "status": "active",
       "keywords": [
         "obsidian",
         "export",
@@ -813,7 +813,7 @@
       "supersedes": null,
       "superseded_by": null,
       "updated": "2026-07-22",
-      "lines": 82,
+      "lines": 84,
       "has_frontmatter": true
     },
     {

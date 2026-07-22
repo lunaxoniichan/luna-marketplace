@@ -28,3 +28,7 @@ docs/generated/graph-memory/
 **/docs/generated/graph-memory/
 docs/generated/context-packs/
 **/docs/generated/context-packs/
+
+# Obsidian export (rebuildable, read-only projection)
+.obsidian-export/
+**/.obsidian-export/

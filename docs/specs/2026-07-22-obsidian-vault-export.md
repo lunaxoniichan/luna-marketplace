@@ -3,7 +3,7 @@ title: Obsidian vault export — design note
 scope: project
 type: spec
 lifecycle: official
-status: draft
+status: active
 keywords: [obsidian, export, wikilinks, vault, view]
 related:
   - docs/plans/2026-07-18-luna-studio.md
@@ -13,8 +13,10 @@ updated: 2026-07-22
 
 # Obsidian vault export — design note
 
-> **Status:** DRAFT design note (Phase 5). Records the decision spine before any exporter
-> code. No exporter ships with this note.
+> **Status:** ACTIVE. The v1 read-only exporter now ships — `scripts/lib/obsidian-export.mjs`
+> + CLI `scripts/obsidian-export.mjs` (`node scripts/obsidian-export.mjs --vault <id>`), writing a
+> gitignored projection under `{vault}/.obsidian-export/`. Symlink-vs-copy / external-location
+> options below remain open for a future iteration.
 
 ## Why
 
