@@ -24,6 +24,7 @@ import {
   validateFrontmatter,
 } from './vault-crud.mjs';
 import { writeDocsIndex } from '../build-docs-index.mjs';
+import { today } from './util.mjs';
 
 export const LIFECYCLE_COMMIT_PREFIX = 'docs(lifecycle):';
 
@@ -53,9 +54,6 @@ const DOCS_INDEX_ARTIFACTS = [
   'llms.txt',
 ];
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function normPath(p) {
   return String(p || '')

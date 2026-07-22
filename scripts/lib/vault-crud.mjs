@@ -19,6 +19,7 @@ import { parseFrontmatter, serializeFrontmatter } from './frontmatter.mjs';
 import { loadRegistry } from './luna-registry.mjs';
 import { syncAgentViews } from './agent-views.mjs';
 import { writeDocsIndex } from '../build-docs-index.mjs';
+import { today } from './util.mjs';
 
 export const SCOPE_VALUES = new Set(['user', 'project', 'session']);
 export const TYPE_VALUES = new Set([
@@ -274,10 +275,6 @@ export function validateFrontmatter(data, opts = {}) {
     }
   }
   return errors;
-}
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function stampFrontmatter(fm) {

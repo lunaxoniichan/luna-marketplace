@@ -3,7 +3,7 @@
  * Contract: docs/specs/2026-07-19-dedupe-assistant-contract.md
  */
 import { createHash } from 'node:crypto';
-import { GENERATED_MARKER } from './agent-views.mjs';
+import { isExcludedKnowledgePath } from './util.mjs';
 
 export const DEFAULT_THRESHOLD = 0.45;
 export const MAX_ITEMS = 2000;
@@ -119,23 +119,8 @@ export function jaccard(a, b) {
  * @param {string} path
  * @param {string} [excerpt]
  */
-export function isExcludedPath(path, excerpt = '') {
-  const norm = String(path || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!norm) return true;
-  if (norm.startsWith('docs/generated/') || norm.includes('/_archive/') || norm.startsWith('docs/_archive/')) {
-    return true;
-  }
-  if (norm.startsWith('.cursor/rules/')) return true;
-  if (norm.startsWith('.claude/rules/')) {
-    if (norm === '.claude/rules/lessons.md') return false;
-    return true;
-  }
-  const body = String(excerpt || '');
-  if (body.includes(GENERATED_MARKER) || body.includes('# GENERATED — edit the canonical')) {
-    return true;
-  }
-  return false;
-}
+/** Alias — canonical impl in util.mjs (shared with graph-memory). */
+export const isExcludedPath = isExcludedKnowledgePath;
 
 /**
  * @param {Array<object>} items

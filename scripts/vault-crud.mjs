@@ -20,6 +20,7 @@ import {
   sha256,
 } from './lib/vault-crud.mjs';
 import { syncAgentViews } from './lib/agent-views.mjs';
+import { today } from './lib/util.mjs';
 
 function usage() {
   console.error(
@@ -35,10 +36,6 @@ function arg(flag, argv) {
 
 function has(flag, argv) {
   return argv.includes(flag);
-}
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function buildFm(argv) {

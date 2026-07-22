@@ -13,6 +13,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { today } from './util.mjs';
 
 export const LESSON_MD_REL = join('.claude', 'rules', 'lessons.md');
 export const LESSON_MDC_REL = join('.cursor', 'rules', 'lessons.mdc');
@@ -40,10 +41,6 @@ export function keywordSet(text) {
   return out;
 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
  * Produce the canonical lesson line (parity with the Python writer).
  * @param {{ what: string, preference: string, portable?: boolean, date?: string }} c
@@ -58,7 +55,7 @@ export function formatLessonLine({ what, preference, portable = false, date }) {
     throw err;
   }
   const prefix = portable ? '[portable] ' : '';
-  return `- ${prefix}AVOID ${did} — DO ${pref} (${date || todayISO()})`;
+  return `- ${prefix}AVOID ${did} — DO ${pref} (${date || today()})`;
 }
 
 /** Match an existing lesson bullet, portable or not. */

@@ -5,7 +5,6 @@
  * Markdown + git remain source of truth. Indexes under docs/generated/graph-memory/
  * are rebuildable. MCP/query surface is read-only — never writes memory/lessons/native.
  */
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
@@ -17,9 +16,11 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 import { parseFrontmatter, inferLifecycle, inferType, extractWikilinks } from './frontmatter.mjs';
 import { walkMarkdown } from './md-walk.mjs';
-import { GENERATED_MARKER } from './agent-views.mjs';
 import { resolveVaultRoot, buildAllowedVaultMap } from './vault-crud.mjs';
 import { normalizeToken, jaccard } from './knowledge-dedupe.mjs';
+import { sha256Text, isExcludedKnowledgePath } from './util.mjs';
+
+export { sha256Text };
 
 export const CHUNKER_VERSION = 1;
 export const EXTRACTOR_VERSION = 1;
@@ -52,31 +53,8 @@ export const READ_ONLY_TOOLS = new Set([
 /**
  * @param {string} text
  */
-export function sha256Text(text) {
-  return createHash('sha256').update(String(text ?? ''), 'utf8').digest('hex');
-}
-
-/**
- * @param {string} path
- * @param {string} [excerpt]
- */
-export function isExcludedGraphSource(path, excerpt = '') {
-  const norm = String(path || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!norm) return true;
-  if (norm.startsWith('docs/generated/') || norm.includes('/_archive/') || norm.startsWith('docs/_archive/')) {
-    return true;
-  }
-  if (norm.startsWith('.cursor/rules/')) return true;
-  if (norm.startsWith('.claude/rules/')) {
-    if (norm === '.claude/rules/lessons.md') return false;
-    return true;
-  }
-  const body = String(excerpt || '');
-  if (body.includes(GENERATED_MARKER) || body.includes('# GENERATED — edit the canonical')) {
-    return true;
-  }
-  return false;
-}
+/** Alias — canonical impl in util.mjs (shared with knowledge-dedupe). */
+export const isExcludedGraphSource = isExcludedKnowledgePath;
 
 /**
  * Heading-aware markdown chunks. Code fences stay intact inside a chunk.

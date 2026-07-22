@@ -5,7 +5,6 @@
  * Client sends vaultId only. Authorized vault stays in server scope.
  * T6: per-vault mutex, error normalization, body-size cap, ctx env-gate.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
 import {
@@ -41,6 +40,7 @@ import {
   rejectCorrection,
 } from './correction-inbox.mjs';
 import { reuseSearch, listAdrDecisions } from './reuse-search.mjs';
+import { sha256Text } from './util.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -214,10 +214,6 @@ export function syncOptsForVault(vault, input = {}, ctx = {}) {
     };
   }
   return { mode, adoptUnmarked };
-}
-
-function sha256Text(text) {
-  return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
 export function summarizeSyncResult(result) {
