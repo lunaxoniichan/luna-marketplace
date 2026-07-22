@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "vendor": "node ../scripts/vendor-studio.mjs",
+    "predev": "npm run vendor",
     "dev": "next dev --port 3900",
+    "prebuild": "npm run vendor",
     "build": "next build",
     "start": "next start --port 3900",
+    "pretypecheck": "npm run vendor",
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test -c e2e/playwright.config.ts"
   },

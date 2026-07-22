@@ -2,12 +2,13 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright smoke config for Luna Studio.
- * Runs against the dev server so the interactive VaultWorkspace + Phase-4 tabs are
- * exercised, not just overview render. Dev is the primary Studio mode (`npm run studio`);
- * production `next build` has a known external-module limitation (see next.config.ts).
+ * Runs against a production build (`next build && next start`) so client hydration is
+ * stable and interactive clicks (tab switches, panel renders) actually fire — the dev
+ * server under headless Playwright has flaky HMR/hydration. Production builds are
+ * unblocked by the vendored plugin libs (T14; scripts/vendor-studio.mjs).
  *
  * Prereqs (browser env): `npx playwright install chromium`.
- * Run: `npm run test:e2e` (from studio/) — boots the dev server on :3900 automatically.
+ * Run: `npm run test:e2e` (from studio/) — builds then starts on :3900 automatically.
  */
 export default defineConfig({
   testDir: ".",
@@ -21,11 +22,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // Dev server (Turbopack dev resolves external plugin .mjs, unlike prod build).
-    // LUNA_STUDIO_FIXTURES gives a deterministic vault for the smoke.
-    command: "LUNA_STUDIO_FIXTURES=1 LUNA_PLUGIN_ROOT=.. npm run dev",
+    // Production build+serve — stable hydration for interactive assertions.
+    // LUNA_STUDIO_FIXTURES gives a deterministic vault; LUNA_PLUGIN_ROOT resolves it.
+    command: "LUNA_PLUGIN_ROOT=.. npm run build && LUNA_STUDIO_FIXTURES=1 LUNA_PLUGIN_ROOT=.. npm run start",
     url: "http://127.0.0.1:3900",
-    timeout: 180_000,
+    timeout: 240_000,
     reuseExistingServer: !process.env.CI,
   },
 });

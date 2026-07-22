@@ -38,4 +38,4 @@ export {
   vaultReuseSearch,
   vaultAdrDecisions,
   listSyncTargets,
-} from "../../../scripts/lib/vault-gateway.mjs";
+} from "../../.plugin/scripts/lib/vault-gateway.mjs";

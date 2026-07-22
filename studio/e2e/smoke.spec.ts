@@ -41,11 +41,12 @@ test.describe("Luna Studio smoke", () => {
     if ((await projectLink.count()) === 0) test.skip(true, "no project registered");
     await projectLink.click();
     await page.waitForLoadState("networkidle");
-    const packTab = page.getByRole("button", { name: "Context pack" });
-    if (!(await packTab.isVisible().catch(() => false))) {
+    // Hydration gate: wait for the workspace (base tab) before interacting.
+    const baseTab = page.getByRole("button", { name: "Canonical memory" });
+    if (!(await baseTab.isVisible().catch(() => false))) {
       test.skip(true, "no editable vault workspace here");
     }
-    await packTab.click();
-    await expect(page.getByText(/read-only|manifest|token/i).first()).toBeVisible();
+    await page.getByRole("button", { name: "Context pack" }).click();
+    await expect(page.getByTestId("context-pack-panel")).toBeVisible();
   });
 });

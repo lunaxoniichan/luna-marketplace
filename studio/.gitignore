@@ -2,3 +2,6 @@
 # Playwright
 test-results/
 playwright-report/
+
+# Vendored plugin libs (rebuilt on predev/prebuild)
+.plugin/
