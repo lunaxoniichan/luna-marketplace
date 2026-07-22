@@ -6,6 +6,7 @@
  * are rebuildable. MCP/query surface is read-only — never writes memory/lessons/native.
  */
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -132,6 +133,37 @@ function sourceKind(relPath, data) {
  * @param {string} vaultRoot
  * @param {string} vaultId
  */
+/**
+ * Most-recent commit time (epoch seconds) per tracked source path, in ONE git call.
+ * Fail-open: returns an empty map when the vault is not a real repo / has no commits,
+ * so recentChanges falls back to path order rather than throwing (T12).
+ * @param {string} vaultRoot
+ * @returns {Map<string, number>}
+ */
+export function collectGitMtimes(vaultRoot) {
+  const map = new Map();
+  try {
+    // Reverse-chronological; first occurrence of a path is its latest commit time.
+    const out = execFileSync('git', ['-C', vaultRoot, 'log', '--format=%ct', '--name-only'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    let ts = null;
+    for (const line of out.split('\n')) {
+      if (/^\d+$/.test(line)) {
+        ts = Number(line);
+      } else if (line.trim() && ts != null) {
+        const p = line.replace(/\\/g, '/');
+        if (!map.has(p)) map.set(p, ts);
+      }
+    }
+  } catch {
+    /* not a repo / no commits — fail-open to empty */
+  }
+  return map;
+}
+
 export function collectVaultSources(vaultRoot, vaultId) {
   /** @type {Array<object>} */
   const sources = [];
@@ -489,6 +521,7 @@ export async function rebuildGraphMemory(opts) {
   const pluginRoot = resolve(opts.pluginRoot || process.env.LUNA_PLUGIN_ROOT || process.cwd());
 
   const sources = collectVaultSources(vault.root, vault.id);
+  const gitMtimes = collectGitMtimes(vault.root);
   const snap = assessKnowledgeSnapshot(pluginRoot, sources);
 
   /** @type {object[]} */
@@ -574,6 +607,7 @@ export async function rebuildGraphMemory(opts) {
       status: s.status,
       source_sha256: s.source_sha256,
       scope: s.scope,
+      git_mtime: gitMtimes.get(s.source_path) ?? null,
     })),
     chunks: persistedChunks,
     nodes: graph.nodes,
@@ -821,7 +855,16 @@ export function checkConflicts(index, limit = MAX_SEARCH_RESULTS) {
  */
 export function recentChanges(index, limit = MAX_SEARCH_RESULTS) {
   const sources = [...(index.sources || [])];
-  // No git mtime in v1 index — return sources in path order with built_at as cohort.
+  const hasMtime = sources.some((s) => typeof s.git_mtime === 'number');
+  // T12: when git mtimes are indexed, order by real recency (newest first, nulls last).
+  // Otherwise fall back to path order and label the cohort honestly.
+  if (hasMtime) {
+    sources.sort((a, b) => {
+      const am = typeof a.git_mtime === 'number' ? a.git_mtime : -Infinity;
+      const bm = typeof b.git_mtime === 'number' ? b.git_mtime : -Infinity;
+      return bm - am || String(a.source_path).localeCompare(String(b.source_path));
+    });
+  }
   return sources.slice(0, limit).map((s) => ({
     project_id: index.project_id,
     vault_id: index.vault_id,
@@ -831,9 +874,11 @@ export function recentChanges(index, limit = MAX_SEARCH_RESULTS) {
     lifecycle: s.lifecycle,
     status: s.status,
     source_sha256: s.source_sha256,
+    git_mtime: s.git_mtime ?? null,
+    changed_at: typeof s.git_mtime === 'number' ? new Date(s.git_mtime * 1000).toISOString() : null,
     built_at: index.built_at,
     lane: 'recent',
-    why: [{ lane: 'index_cohort', score: 1 }],
+    why: [{ lane: hasMtime ? 'git_mtime' : 'index_cohort', score: 1 }],
   }));
 }
 

@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import {
   chunkMarkdown,
   rebuildGraphMemory,
@@ -450,6 +451,47 @@ await test('embeddings batch all chunks; partial status is honest', async () => 
   assert.equal(partial.partial, true);
   assert.equal(partial.embedded_count, 2);
   assert.equal(partial.total, 10);
+});
+
+await test('recent_changes is git-mtime ordered (newest first), honest lane (T12)', async () => {
+  // Real git repo with two commits at distinct times — proves recency ordering,
+  // not path order.
+  const root = mkdtempSync(join(tmpdir(), 'luna-gm-mtime-'));
+  const id = `vault-mtime-${sha256Text(root).slice(0, 8)}`;
+  const plugin = mkdtempSync(join(tmpdir(), 'luna-plugin-mtime-'));
+  mkdirSync(join(plugin, 'docs', 'generated'), { recursive: true });
+  const registry = { projects: [{ id, path: root }] };
+  const git = (args, env = {}) =>
+    execFileSync('git', ['-C', root, ...args], { stdio: 'ignore', env: { ...process.env, ...env } });
+
+  mkdirSync(join(root, 'docs', 'specs'), { recursive: true });
+  git(['init']);
+  git(['config', 'user.email', 't@e.com']);
+  git(['config', 'user.name', 'T']);
+
+  // Older commit: aaa.md ; newer commit: zzz.md (alphabetically zzz > aaa,
+  // so path order would put aaa first — recency must put zzz first).
+  writeFileSync(join(root, 'docs', 'specs', 'aaa-old.md'), `---\ntitle: Old\ntype: spec\nlifecycle: official\nstatus: active\n---\n\n# Old\n\nold content\n`);
+  git(['add', '.']);
+  git(['commit', '-m', 'old'], { GIT_AUTHOR_DATE: '2026-01-01T00:00:00', GIT_COMMITTER_DATE: '2026-01-01T00:00:00' });
+
+  writeFileSync(join(root, 'docs', 'specs', 'zzz-new.md'), `---\ntitle: New\ntype: spec\nlifecycle: official\nstatus: active\n---\n\n# New\n\nnew content\n`);
+  git(['add', '.']);
+  git(['commit', '-m', 'new'], { GIT_AUTHOR_DATE: '2026-06-01T00:00:00', GIT_COMMITTER_DATE: '2026-06-01T00:00:00' });
+
+  await rebuildGraphMemory({ vaultId: id, pluginRoot: plugin, registry, embed: false });
+  const out = invokeGraphMemoryTool('recent_changes', { vaultId: id }, { pluginRoot: plugin, registry });
+  const paths = out.hits.map((h) => h.source_path);
+  const iNew = paths.indexOf('docs/specs/zzz-new.md');
+  const iOld = paths.indexOf('docs/specs/aaa-old.md');
+  assert.ok(iNew >= 0 && iOld >= 0, 'both sources present');
+  assert.ok(iNew < iOld, `newer commit must sort first (got ${JSON.stringify(paths)})`);
+  assert.equal(out.hits[iNew].why[0].lane, 'git_mtime', 'lane must be honest when mtimes exist');
+  assert.ok(out.hits[iNew].changed_at, 'changed_at ISO present');
+  assert.ok(out.hits[iNew].git_mtime > out.hits[iOld].git_mtime);
+
+  rmSync(root, { recursive: true, force: true });
+  rmSync(plugin, { recursive: true, force: true });
 });
 
 if (failed) {
