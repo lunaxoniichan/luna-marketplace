@@ -8,6 +8,6 @@
 
 | Spec | Plan | Phase | Owner | Last commit | Status | Resume hint |
 |------|------|-------|-------|-------------|--------|-------------|
+| — | docs/plans/2026-06-15-phase-1-review-fixes.md | follow-up, hooks | — | `1016485` 2026-07-23 | active | — |
 | — | docs/plans/2026-07-18-luna-studio.md | phase-0, phase-1, phase-2, phase-3, phase-4, phase-5 | — | `2cc23ac` 2026-07-23 | active | — |
-| — | docs/plans/2026-06-15-phase-1-review-fixes.md | hooks | — | `13c2c48` 2026-06-15 | active | — |
 | — | docs/plans/2026-06-14-luna-agent-kit-v2.md | phase-1, phase-2, phase-3, phase-4 | — | `bea8944` 2026-06-15 | active | — |
