@@ -13,6 +13,7 @@
     "test:knowledge-dedupe": "node tests/scripts/knowledge-dedupe.test.mjs && node tests/scripts/build-knowledge-canonical.test.mjs && node scripts/knowledge-dedupe.mjs --check-fixture",
     "test:graph-memory": "node tests/scripts/graph-memory.test.mjs",
     "test:context-pack": "node tests/scripts/context-pack.test.mjs",
+    "test:correction-inbox": "node tests/scripts/correction-inbox.test.mjs",
     "test:plans-registry": "node tests/scripts/build-plans-registry.test.mjs",
     "test:studio": "node tests/studio/studio.test.js",
     "build:plugin-graph": "node scripts/build-plugin-graph.mjs",

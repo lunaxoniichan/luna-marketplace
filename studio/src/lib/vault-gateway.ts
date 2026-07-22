@@ -32,5 +32,8 @@ export {
   vaultContextPackPreview,
   vaultContextPackBuild,
   vaultContextPackDrift,
+  vaultCorrectionCandidates,
+  vaultCorrectionAccept,
+  vaultCorrectionReject,
   listSyncTargets,
 } from "../../../scripts/lib/vault-gateway.mjs";

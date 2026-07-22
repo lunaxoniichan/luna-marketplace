@@ -16,6 +16,8 @@ import {
   vaultLifecyclePreview,
   vaultLifecycleApply,
   vaultDedupeReport,
+  vaultCorrectionAccept,
+  vaultCorrectionReject,
   assertVaultId,
   assertBodySize,
   assertCtxAllowed,
@@ -533,6 +535,48 @@ test('vaultDedupeReport is read-only and clusters overlapping knowledge', () => 
 
   const bad = vaultDedupeReport({ vaultId: 'gw-proj', scopeMode: 'nope', root: '/x' }, ctx);
   assert.equal(bad.ok, false);
+});
+
+test('correction accept via gateway writes only lessons; reject writes nothing; unknown key rejected', () => {
+  // Seed a lessons.md so append has a target.
+  mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+  mkdirSync(join(root, '.cursor', 'rules'), { recursive: true });
+  writeFileSync(join(root, '.claude', 'rules', 'lessons.md'), '# Lessons\n');
+  writeFileSync(join(root, '.cursor', 'rules', 'lessons.mdc'), '# Lessons\n');
+
+  // Unknown key rejected by the gate.
+  const rejUnknown = vaultCorrectionAccept(
+    { vaultId: 'gw-proj', relPath: 'memory/x.md', what_claude_did: 'a', implied_preference: 'b' },
+    ctx,
+  );
+  assert.equal(rejUnknown.ok, false);
+
+  // Reject writes nothing durable.
+  const memBefore = existsSync(join(root, 'memory')) ? git(['status', '--porcelain']) : '';
+  const rej = vaultCorrectionReject({ vaultId: 'gw-proj', candidateId: 'c1' }, ctx);
+  assert.equal(rej.ok, true);
+  assert.equal(rej.appended, false);
+
+  // Accept appends one line to BOTH lesson files and nothing else.
+  const acc = vaultCorrectionAccept(
+    {
+      vaultId: 'gw-proj',
+      candidateId: 'c1',
+      what_claude_did: 'skipping the review gate',
+      implied_preference: 'wait for sign-off',
+      applies_to: 'this_project',
+    },
+    ctx,
+  );
+  assert.equal(acc.ok, true);
+  assert.equal(acc.appended, true);
+  const md = readFileSync(join(root, '.claude', 'rules', 'lessons.md'), 'utf8');
+  const mdc = readFileSync(join(root, '.cursor', 'rules', 'lessons.mdc'), 'utf8');
+  assert.ok(md.includes('AVOID skipping the review gate — DO wait for sign-off'));
+  assert.ok(mdc.includes('AVOID skipping the review gate — DO wait for sign-off'));
+  // No memory/native write from accept.
+  assert.ok(!existsSync(join(root, 'memory', 'x.md')));
+  void memBefore;
 });
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');

@@ -16,6 +16,7 @@ import { SyncPreviewPanel } from "@/components/SyncPreviewPanel";
 import { DedupePanel } from "@/components/DedupePanel";
 import { GraphMemoryPanel } from "@/components/GraphMemoryPanel";
 import { ContextPackPanel } from "@/components/ContextPackPanel";
+import { CorrectionInboxPanel } from "@/components/CorrectionInboxPanel";
 
 type WikiTarget = { slug: string; path: string; title: string };
 
@@ -59,7 +60,7 @@ export function VaultWorkspace({
   const rulesReadOnly = !isPluginVault;
 
   const [tab, setTab] = useState<
-    "memory" | "rules" | "docs" | "sync" | "dedupe" | "graph" | "pack"
+    "memory" | "rules" | "docs" | "sync" | "dedupe" | "graph" | "pack" | "corrections"
   >("memory");
   const [lists, setLists] = useState<{ rules: string[]; memory: string[]; docs: string[] }>({
     rules: [],
@@ -322,6 +323,7 @@ export function VaultWorkspace({
               ["dedupe", "Dedupe"],
               ["graph", "Graph memory"],
               ["pack", "Context pack"],
+              ["corrections", "Corrections"],
               ["sync", "Regenerate views"],
             ] as const
           ).map(([id, label]) => (
@@ -413,6 +415,8 @@ export function VaultWorkspace({
             loadFile(relPath);
           }}
         />
+      ) : tab === "corrections" ? (
+        <CorrectionInboxPanel vaultId={vaultId} />
       ) : (
         <div className="grid gap-4 md:grid-cols-[220px_1fr]">
           <div className="space-y-2">

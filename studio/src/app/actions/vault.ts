@@ -26,6 +26,9 @@ import {
   vaultContextPackPreview as contextPackPreview,
   vaultContextPackBuild as contextPackBuild,
   vaultContextPackDrift as contextPackDrift,
+  vaultCorrectionCandidates as correctionCandidates,
+  vaultCorrectionAccept as correctionAccept,
+  vaultCorrectionReject as correctionReject,
   listSyncTargets as syncTargets,
 } from "@/lib/vault-gateway";
 
@@ -111,6 +114,18 @@ export async function vaultContextPackBuild(input: Record<string, unknown>) {
 
 export async function vaultContextPackDrift(input: Record<string, unknown>) {
   return contextPackDrift(input);
+}
+
+export async function vaultCorrectionCandidates(input: Record<string, unknown>) {
+  return correctionCandidates(input);
+}
+
+export async function vaultCorrectionAccept(input: Record<string, unknown>) {
+  return correctionAccept(input);
+}
+
+export async function vaultCorrectionReject(input: Record<string, unknown>) {
+  return correctionReject(input);
 }
 
 export async function listSyncTargets() {

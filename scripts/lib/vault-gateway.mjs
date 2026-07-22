@@ -35,6 +35,11 @@ import {
   detectPackDrift,
   PACK_TYPES,
 } from './context-pack.mjs';
+import {
+  listCorrectionCandidates,
+  acceptCorrection,
+  rejectCorrection,
+} from './correction-inbox.mjs';
 
 const VAULT_ID_RE = /^[A-Za-z0-9._-]+$/;
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -83,6 +88,15 @@ const CONTEXT_PACK_KEYS = new Set([
   'scope',
 ]);
 const CONTEXT_PACK_DRIFT_KEYS = new Set(['vaultId', 'manifest']);
+const CORRECTION_LIST_KEYS = new Set(['vaultId', 'pendingFile']);
+const CORRECTION_ACCEPT_KEYS = new Set([
+  'vaultId',
+  'candidateId',
+  'what_claude_did',
+  'implied_preference',
+  'applies_to',
+]);
+const CORRECTION_REJECT_KEYS = new Set(['vaultId', 'candidateId']);
 
 /** @type {Set<string>} */
 const vaultLocks = new Set();
@@ -1002,6 +1016,77 @@ export function vaultContextPackDrift(input, ctx = {}) {
       { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
     );
     return { ok: true, vaultId: String(input.vaultId), ...result };
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Correction inbox — list candidates (read-only).
+ */
+export function vaultCorrectionCandidates(input, ctx = {}) {
+  const g = gate(input, CORRECTION_LIST_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const out = listCorrectionCandidates({
+      vaultId: String(input.vaultId),
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+      pendingFile: input.pendingFile ? String(input.pendingFile) : undefined,
+    });
+    return out;
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Correction inbox — accept a candidate. Sole Phase-4 canonical write:
+ * appends one lesson line to lessons.md + lessons.mdc via the shared helper.
+ * Never routes through vault-crud; never writes memory/native.
+ */
+export function vaultCorrectionAccept(input, ctx = {}) {
+  const g = gate(input, CORRECTION_ACCEPT_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const out = acceptCorrection({
+      vaultId: String(input.vaultId),
+      candidateId: input.candidateId ? String(input.candidateId) : undefined,
+      what_claude_did: String(input.what_claude_did || ''),
+      implied_preference: String(input.implied_preference || ''),
+      applies_to: input.applies_to === 'all_projects' ? 'all_projects' : 'this_project',
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return out;
+  } catch (e) {
+    return { ok: false, error: normalizeError(e) };
+  }
+}
+
+/**
+ * Correction inbox — reject a candidate (no durable write).
+ */
+export function vaultCorrectionReject(input, ctx = {}) {
+  const g = gate(input, CORRECTION_REJECT_KEYS, ctx);
+  if (g) return g;
+  const bad = assertVaultId(input.vaultId);
+  if (bad) return { ok: false, error: bad };
+  try {
+    openVault(String(input.vaultId), ctx);
+    const out = rejectCorrection({
+      vaultId: String(input.vaultId),
+      candidateId: input.candidateId ? String(input.candidateId) : undefined,
+      pluginRoot: ctx.pluginRoot ?? pluginRoot(),
+      registry: ctx.registry,
+    });
+    return out;
   } catch (e) {
     return { ok: false, error: normalizeError(e) };
   }
