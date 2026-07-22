@@ -30,6 +30,11 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/dedupe-guard.js\"",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/plan-trailer-guard.js\"",
+            "timeout": 5
           }
         ]
       },

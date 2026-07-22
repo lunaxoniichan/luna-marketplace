@@ -140,6 +140,7 @@ returns `ask` rather than serve a stale graph) and honor opt-out env vars:
 | `LUNA_WEB_GUARD` | `on` | `off` disables HTTPS-only + source-list enforcement |
 | `LUNA_DOC_SYNC_REMINDER` | `on` | `off` silences the Stop-hook doc reminder |
 | `LUNA_DEDUPE_GUARD` | `on` | `off` disables the pre-commit jscpd duplicate warning |
+| `LUNA_PLAN_TRAILER_GUARD` | `on` | `off` disables the advisory `Plan:`-trailer reminder on commits during an active plan |
 | `LUNA_GITNEXUS_SUBMODULE_ADVISORY` | `on` | `off` silences stale/missing submodule index warnings on Read/Write/Edit |
 | `LUNA_LESSONS_AUTOEXTRACT` | `on` | `off` (or a `.claude/.no-reflect` marker) disables auto lesson capture |
 | `LUNA_FILE_SIZE_GUARD` | `on` | `off` disables file-size advisory hook |

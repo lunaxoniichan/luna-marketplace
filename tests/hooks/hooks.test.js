@@ -12,6 +12,13 @@ const {
   run: runDedupeGuard,
   resolveJscpdBin,
 } = require('../../scripts/hooks/dedupe-guard');
+const {
+  run: runPlanTrailerGuard,
+  hasPlanTrailer,
+  firstCommitMessage,
+  isPlanWorthy,
+  hasActivePlan,
+} = require('../../scripts/hooks/plan-trailer-guard');
 
 let passed = 0;
 let failed = 0;
@@ -290,6 +297,110 @@ test('file-size-guard: silent for skill SKILL.md', () => {
 test('file-size-guard: silent for non-doc non-code file (.json)', () => {
   const r = fileSizeCheck('/project/package.json', 9999);
   assert(r === null, 'should ignore .json files');
+});
+
+// --- plan-trailer-guard ---
+
+test('plan-trailer-guard: hasPlanTrailer detects a trailer', () => {
+  assert(hasPlanTrailer('git commit -m "feat: x\n\nPlan: docs/plans/p.md#phase-1"') === true, 'detect');
+  assert(hasPlanTrailer('git commit -m "feat: x"') === false, 'none');
+});
+
+test('plan-trailer-guard: firstCommitMessage + isPlanWorthy classify type', () => {
+  assert(firstCommitMessage('git commit -m "feat: add x"') === 'feat: add x', 'parse -m');
+  assert(isPlanWorthy('feat: add x') === true, 'feat is plan-worthy');
+  assert(isPlanWorthy('chore: rebuild PLANS') === false, 'chore is not');
+  assert(isPlanWorthy('docs: note') === false, 'docs is not');
+});
+
+test('plan-trailer-guard: hasActivePlan reads docs/PLANS.md', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-plan-'));
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| spec | p.md | phase-1 | claude | `abc` 2026 | active | hint |\n');
+    assert(hasActivePlan(dir) === true, 'active row detected');
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| spec | p.md | phase-1 | claude | `abc` 2026 | done | hint |\n');
+    assert(hasActivePlan(dir) === false, 'no active row');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan-trailer-guard: warns on feat commit during active plan without trailer', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-plan2-'));
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| s | p.md | phase-1 | claude | `abc` 2026 | active | h |\n');
+    const r = runPlanTrailerGuard(JSON.stringify({ tool_input: { command: 'git commit -m "feat: x"' }, cwd: dir }));
+    assert(r.exitCode === 0 && typeof r.systemMessage === 'string', 'should warn (advisory)');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan-trailer-guard: silent when trailer present', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-plan3-'));
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| s | p.md | phase-1 | claude | `abc` 2026 | active | h |\n');
+    const r = runPlanTrailerGuard(JSON.stringify({
+      tool_input: { command: 'git commit -m "feat: x" -m "Plan: docs/plans/p.md#phase-1"' },
+      cwd: dir,
+    }));
+    assert(r.exitCode === 0 && !r.systemMessage, 'trailer present → silent');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan-trailer-guard: silent for chore commit (no nag on PLANS rebuild)', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-plan4-'));
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| s | p.md | phase-1 | claude | `abc` 2026 | active | h |\n');
+    const r = runPlanTrailerGuard(JSON.stringify({
+      tool_input: { command: 'git commit -m "chore: rebuild docs/PLANS.md"' },
+      cwd: dir,
+    }));
+    assert(r.exitCode === 0 && !r.systemMessage, 'chore → silent');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan-trailer-guard: silent when no active plan', () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('fs');
+  const { join } = require('path');
+  const { tmpdir } = require('os');
+  const dir = mkdtempSync(join(tmpdir(), 'luna-plan5-'));
+  try {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'PLANS.md'), '| s | p.md | phase-1 | claude | `abc` 2026 | done | h |\n');
+    const r = runPlanTrailerGuard(JSON.stringify({ tool_input: { command: 'git commit -m "feat: x"' }, cwd: dir }));
+    assert(r.exitCode === 0 && !r.systemMessage, 'no active plan → silent');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('plan-trailer-guard: opt-out silences', () => {
+  const prev = process.env.LUNA_PLAN_TRAILER_GUARD;
+  process.env.LUNA_PLAN_TRAILER_GUARD = 'off';
+  const r = runPlanTrailerGuard(JSON.stringify({ tool_input: { command: 'git commit -m "feat: x"' } }));
+  process.env.LUNA_PLAN_TRAILER_GUARD = prev;
+  assert(r.exitCode === 0 && !r.systemMessage, 'opt-out → silent');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

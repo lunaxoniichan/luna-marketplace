@@ -4,7 +4,7 @@
 
 | ID | Task | Plan file | Plan phase | Status |
 |----|------|-----------|------------|--------|
-| T1 | Optional `commit-plan-trailer` PreToolUse warn-hook: when a `git commit` runs during an active plan but the message lacks a `Plan:` trailer, warn (don't block). Fail-open. | `docs/plans/2026-06-15-phase-1-review-fixes.md` | follow-up | deferred |
+| T1 | `plan-trailer-guard` PreToolUse (Bash) warn-hook: warns when a plan-worthy commit (feat/fix/refactor/perf) runs during an active plan (docs/PLANS.md active row) without a `Plan:` trailer. Fail-open; opt-out `LUNA_PLAN_TRAILER_GUARD=off`; mirrored in `.cursor/hooks.json`. | `docs/plans/2026-06-15-phase-1-review-fixes.md` | follow-up | done |
 | T2 | Sharks-Loop MCP transport + optional GitHub Action CI gate (loop-coupled expansion tier). | `docs/plans/2026-07-18-sharks-loop.md` | phase-5 | deferred |
 | T3 | Confirm remaining build-time decisions (staging Firebase vs emulator · identity_mode default · attempt-cap) before Sharks-Loop implementation. | `docs/plans/2026-07-18-sharks-loop.md` | phase-1 | blocked |
 | T4 | Doc-lifecycle restructure — convention + buckets in Studio Phase 0; **promote/demote UI + skills** shipped (contract `docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md`). | `docs/plans/2026-07-18-luna-studio.md` | phase-2 / phase-5 | done |
