@@ -3,7 +3,7 @@
 > Agent routing index (generated). Full catalog: docs/README.md
 
 ## Entry
-- AGENTS.md — AGENTS
+- AGENTS.md — Luna Agent Kit — Agent & Contributor Guide
 - docs/README.md — doc catalog, ownership, read order
 
 ## Official

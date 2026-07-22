@@ -40,8 +40,14 @@ function slugFromPath(rel) {
   return basename(rel, '.md').toLowerCase().replace(/_/g, '-');
 }
 
-function titleFrom(data, rel) {
+function titleFrom(data, rel, body) {
   if (data.title) return String(data.title);
+  // Fall back to the first H1 heading (fixes weak filename-derived titles like
+  // "AGENTS" → "Luna Agent Kit — Agent & Contributor Guide") before the filename.
+  if (body) {
+    const m = body.match(/^#\s+(.+)$/m);
+    if (m) return m[1].trim();
+  }
   const base = basename(rel, '.md');
   return base.replace(/[-_]/g, ' ');
 }
@@ -86,7 +92,7 @@ function buildIndex(root) {
     const entry = {
       path: f.rel,
       slug,
-      title: titleFrom(data, f.rel),
+      title: titleFrom(data, f.rel, body),
       scope: data.scope || (f.rel === 'AGENTS.md' ? 'user' : 'project'),
       type,
       lifecycle,
@@ -404,8 +410,18 @@ function main() {
       console.error('docs-index out of date — run: node scripts/build-docs-index.mjs');
       process.exit(1);
     }
+    // Content-aware gate: durable knowledge docs (spec/plan/decision/memory/architecture)
+    // must carry front-matter. This catches a missing-FM regression that a doc-count
+    // check alone would miss.
+    if (index.health.missing_frontmatter.length > 0) {
+      console.error(
+        `docs-index --check: ${index.health.missing_frontmatter.length} doc(s) missing front-matter ` +
+          `(adopt templates/docs/FRONTMATTER.md): ${index.health.missing_frontmatter.join(', ')}`
+      );
+      process.exit(1);
+    }
     console.log(
-      `docs-index ok (${index.counts.docs} docs; broken_related=${index.health.broken_related.length}; oversize_alert=${index.health.oversize_alert.length})`
+      `docs-index ok (${index.counts.docs} docs; missing_fm=${index.health.missing_frontmatter.length}; broken_related=${index.health.broken_related.length}; oversize_alert=${index.health.oversize_alert.length})`
     );
     process.exit(0);
   }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-21T22:37:42.281Z",
+  "generated_at": "2026-07-22T11:34:19.518Z",
   "root": "luna-marketplace",
   "counts": {
     "docs": 40,
@@ -11,7 +11,7 @@
     {
       "path": "AGENTS.md",
       "slug": "agents",
-      "title": "AGENTS",
+      "title": "Luna Agent Kit — Agent & Contributor Guide",
       "scope": "user",
       "type": "reference",
       "lifecycle": "official",
@@ -28,7 +28,7 @@
     {
       "path": "docs/PLANS.md",
       "slug": "plans",
-      "title": "PLANS",
+      "title": "Plan registry",
       "scope": "project",
       "type": "plan",
       "lifecycle": "official",
@@ -67,7 +67,7 @@
     {
       "path": "docs/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "luna-marketplace — docs index",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",
@@ -106,7 +106,7 @@
     {
       "path": "docs/TODO.md",
       "slug": "todo",
-      "title": "TODO",
+      "title": "Backlog",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",
@@ -123,7 +123,7 @@
     {
       "path": "docs/TOOLS_LIST.md",
       "slug": "tools-list",
-      "title": "TOOLS LIST",
+      "title": "Luna Agent Kit — Tools Inventory",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",
@@ -140,7 +140,7 @@
     {
       "path": "docs/VIBE_RULES.md",
       "slug": "vibe-rules",
-      "title": "VIBE RULES",
+      "title": "Vibe coding — generic engineering rules",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",
@@ -203,7 +203,7 @@
     {
       "path": "docs/decisions/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "Decisions (ADRs)",
       "scope": "project",
       "type": "decision",
       "lifecycle": "official",
@@ -220,7 +220,7 @@
     {
       "path": "docs/examples/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "Knowledge stack examples",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",
@@ -317,7 +317,7 @@
     {
       "path": "docs/plans/IMPLEMENTATION_PLANS.md",
       "slug": "implementation-plans",
-      "title": "IMPLEMENTATION PLANS",
+      "title": "Luna Agent Kit — Custom Superpowers Plugin Plan",
       "scope": "project",
       "type": "plan",
       "lifecycle": "official",
@@ -334,7 +334,7 @@
     {
       "path": "docs/post-official/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "POST_OFFICIAL",
       "scope": "project",
       "type": "reference",
       "lifecycle": "post_official",
@@ -370,7 +370,7 @@
     {
       "path": "docs/post-official/completed-plans/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "POST_OFFICIAL — completed plans",
       "scope": "project",
       "type": "reference",
       "lifecycle": "post_official",
@@ -387,7 +387,7 @@
     {
       "path": "docs/post-official/legacy/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "POST_OFFICIAL — legacy",
       "scope": "project",
       "type": "reference",
       "lifecycle": "post_official",
@@ -404,7 +404,7 @@
     {
       "path": "docs/pre-official/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "PRE_OFFICIAL",
       "scope": "project",
       "type": "reference",
       "lifecycle": "pre_official",
@@ -421,7 +421,7 @@
     {
       "path": "docs/pre-official/audits/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "PRE_OFFICIAL — audits",
       "scope": "project",
       "type": "spec",
       "lifecycle": "pre_official",
@@ -495,7 +495,7 @@
     {
       "path": "docs/pre-official/research/README.md",
       "slug": "readme",
-      "title": "README",
+      "title": "PRE_OFFICIAL — research",
       "scope": "project",
       "type": "spec",
       "lifecycle": "pre_official",
@@ -855,7 +855,7 @@
     {
       "path": "docs/workflows/WORKFLOW.md",
       "slug": "workflow",
-      "title": "WORKFLOW",
+      "title": "Project workflow",
       "scope": "project",
       "type": "reference",
       "lifecycle": "official",

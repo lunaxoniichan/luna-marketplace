@@ -196,6 +196,37 @@ See [[other-doc]] and [[third]].
     assert(typeof idx.health.missing_frontmatter.length === 'number', 'missing_fm surfaced in index');
   });
 
+  await test('docs-index: H1 title fallback + content-aware --check fails on missing FM', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'luna-fm-'));
+    try {
+      mkdirSync(join(dir, 'docs', 'specs'), { recursive: true });
+      // No front-matter, but an H1 → title should come from the heading, not "AGENTS".
+      writeFileSync(join(dir, 'AGENTS.md'), '# My Kit — Contributor Guide\n\nbody\n');
+      writeFileSync(join(dir, 'docs', 'README.md'), '# docs\n');
+      // A spec doc missing front-matter → flagged + must fail --check.
+      writeFileSync(join(dir, 'docs', 'specs', 'no-fm.md'), '# No FM spec\n\nbody\n');
+
+      run(`node scripts/build-docs-index.mjs --root ${dir}`);
+      const idx = JSON.parse(readFileSync(join(dir, 'docs/generated/docs-index.json'), 'utf8'));
+      const agents = idx.docs.find((d) => d.path === 'AGENTS.md');
+      assert(agents.title === 'My Kit — Contributor Guide', `H1 fallback, got ${agents.title}`);
+      assert(
+        idx.health.missing_frontmatter.includes('docs/specs/no-fm.md'),
+        'missing-FM spec should be flagged',
+      );
+
+      let checkFailed = false;
+      try {
+        run(`node scripts/build-docs-index.mjs --check --root ${dir}`);
+      } catch {
+        checkFailed = true;
+      }
+      assert(checkFailed, '--check must fail when a durable doc lacks front-matter');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   await test('--check passes after build', () => {
     run('node scripts/build-knowledge.mjs');
     run('node scripts/build-plugin-graph.mjs --check');
