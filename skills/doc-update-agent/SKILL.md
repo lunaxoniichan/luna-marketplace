@@ -39,7 +39,10 @@ node scripts/build-plans-registry.mjs
 
 Trailer paths stay logical IDs; the registry resolves the on-disk path under `completed-plans/`.
 
-Studio UI calls the same `planLifecycleMove` / `applyLifecycleMove` — results are byte-identical.
+**Single owned path.** Lifecycle moves have exactly two entry surfaces — this skill's CLI, or the
+Studio **Lifecycle** panel — and both call the same `planLifecycleMove` / `applyLifecycleMove`
+(byte-identical results). No third, hand-rolled path. After a plan demote/supersede the Studio panel
+surfaces a hint to run `build-plans-registry.mjs` (registry rebuild is a separate no-trailer commit).
 
 ## Process
 
@@ -49,8 +52,9 @@ Studio UI calls the same `planLifecycleMove` / `applyLifecycleMove` — results 
    `- AVOID <thing> — DO <alternative> (YYYY-MM-DD)`, mirror it to `.cursor/rules/lessons.mdc`, and
    optionally save a project-scoped `feedback` memory (prefix `[portable]` if the lesson applies
    beyond this repo). **Never write `~/.claude/CLAUDE.md`** — user-level memory is the human's job.
-   (The `lessons-extractor` SessionEnd hook also captures these automatically — this skill is the
-   in-session, deliberate path.)
+   (The `lessons-extractor` SessionEnd hook captures these automatically, and the Studio
+   **Corrections** tab accepts candidates through the *same* append helper — one lesson format /
+   dedup across all three surfaces. This skill is the in-session, deliberate path.)
 3. Keep `Owner` accurate so the receiving tool reads a self-contained, current registry.
 
 ## Do not

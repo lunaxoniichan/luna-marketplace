@@ -33,8 +33,9 @@ Promote sets `lifecycle: official` + `status: active` and moves into the mapped 
 Supersede requires an existing `superseded_by` target, sets `status: superseded`, and moves to
 `docs/post-official/legacy/` (or `completed-plans/` for `type: plan`).
 
-Same lib as Studio (`planLifecycleMove` / `applyLifecycleMove`) — byte-identical results.
-Drift check: `node scripts/doc-lifecycle.mjs --check`.
+**Single owned path.** Two entry surfaces only — this skill's CLI, or the Studio **Lifecycle**
+panel — both calling the same `planLifecycleMove` / `applyLifecycleMove` (byte-identical). No
+hand-rolled third path. Drift check: `node scripts/doc-lifecycle.mjs --check`.
 
 Plan archival (`plans/` → `completed-plans/`) is owned by **`doc-update-agent`**.
 
