@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-07-22T11:46:33.544Z",
+  "generated_at": "2026-07-22T12:30:14.515Z",
   "root": "luna-marketplace",
   "counts": {
-    "docs": 40,
+    "docs": 41,
     "pre_official": 5,
-    "official": 31,
+    "official": 32,
     "post_official": 4
   },
   "docs": [
@@ -789,6 +789,34 @@
       "has_frontmatter": true
     },
     {
+      "path": "docs/specs/2026-07-22-obsidian-vault-export.md",
+      "slug": "2026-07-22-obsidian-vault-export",
+      "title": "Obsidian vault export — design note",
+      "scope": "project",
+      "type": "spec",
+      "lifecycle": "official",
+      "status": "draft",
+      "keywords": [
+        "obsidian",
+        "export",
+        "wikilinks",
+        "vault",
+        "view"
+      ],
+      "related": [
+        "docs/plans/2026-07-18-luna-studio.md",
+        "docs/specs/2026-07-18-sync-agent-views-contract.md"
+      ],
+      "wikilinks": [
+        "wikilinks"
+      ],
+      "supersedes": null,
+      "superseded_by": null,
+      "updated": "2026-07-22",
+      "lines": 82,
+      "has_frontmatter": true
+    },
+    {
       "path": "docs/specs/code-intelligence-tools-comparison.md",
       "slug": "code-intelligence-tools-comparison",
       "title": "GitNexus vs codebase-memory-mcp vs CodeGraph",
@@ -915,6 +943,10 @@
       {
         "from": "docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md",
         "related": "templates/docs/FRONTMATTER.md"
+      },
+      {
+        "from": "docs/specs/2026-07-22-obsidian-vault-export.md",
+        "related": "wikilinks"
       }
     ],
     "missing_frontmatter": []

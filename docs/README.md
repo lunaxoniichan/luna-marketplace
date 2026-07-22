@@ -50,6 +50,7 @@ flowchart LR
 | [`specs/2026-07-19-fleet-sync-contract.md`](specs/2026-07-19-fleet-sync-contract.md) | **spec** — Fleet sync — plugin rules/ → all registry projects | official | fleet, sync-agent-views, rules, registry, T5 |
 | [`specs/2026-07-19-graph-memory-backend-contract.md`](specs/2026-07-19-graph-memory-backend-contract.md) | **spec** — Graph memory backend — rebuildable KG + embeddings contract | official | graph-memory, context-engineering, graphiti, embeddings, mcp, local-ai, phase-3 |
 | [`specs/2026-07-20-context-pack-contract.md`](specs/2026-07-20-context-pack-contract.md) | **spec** — Context Pack + Phase 4 context-engineering contract | official | context-pack, drift, correction-inbox, reuse-search, adr, phase-4, context-engineering |
+| [`specs/2026-07-22-obsidian-vault-export.md`](specs/2026-07-22-obsidian-vault-export.md) | **spec** — Obsidian vault export — design note | official | obsidian, export, wikilinks, vault, view |
 | [`specs/code-intelligence-tools-comparison.md`](specs/code-intelligence-tools-comparison.md) | **spec** — GitNexus vs codebase-memory-mcp vs CodeGraph | official | gitnexus, jscpd, code-intelligence |
 | [`specs/monorepo-refactor-playbook.md`](specs/monorepo-refactor-playbook.md) | **spec** — Monorepo + submodule refactor playbook | official | monorepo, submodule, refactor, jscpd |
 | [`specs/vibe-rules-dedup-handoff.md`](specs/vibe-rules-dedup-handoff.md) | **spec** — vibe-rules dedup + ECC retirement — handoff | official | vibe-rules, ecc, handoff |
@@ -87,7 +88,7 @@ flowchart LR
 ### Generated health
 
 - Oversize alert (>500): **1** · warn (>300): **7**
-- Broken `related` / wikilinks: **2**
+- Broken `related` / wikilinks: **3**
 - Missing front-matter (spec/plan/decision/memory): **0**
 
 Alerts:
@@ -96,5 +97,6 @@ Alerts:
 Broken links (sample):
 - `docs/specs/2026-07-19-dedupe-assistant-contract.md` → `templates/docs/FRONTMATTER.md`
 - `docs/specs/2026-07-19-doc-lifecycle-promote-demote-contract.md` → `templates/docs/FRONTMATTER.md`
+- `docs/specs/2026-07-22-obsidian-vault-export.md` → `wikilinks`
 
 <!-- luna:generated:health:end -->
