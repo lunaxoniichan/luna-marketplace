@@ -21,6 +21,12 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If you haven't completed Phase 1, you cannot propose fixes.
 
+**Empirical subjects (backtests, metrics, experiments):** the root cause must be
+**measured** — a per-unit distribution or attribution — not narrated from an
+aggregate. If the instrumentation to measure it does not exist, building that
+(behavior-inert) instrumentation is the first step of Phase 1. See the
+`experimentation` rule.
+
 ## When to Use
 
 Use for ANY technical issue:

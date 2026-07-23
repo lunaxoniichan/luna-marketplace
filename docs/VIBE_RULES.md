@@ -25,7 +25,7 @@ tests still pass.
 
 | Step | What to do | Luna skills |
 |------|------------|-------------|
-| **Research** | Search repo (GitNexus), library docs, registries, proven OSS. Prefer adapting what exists. | `dev-research`, `gitnexus-exploring` |
+| **Research** | Search repo (GitNexus), library docs, registries, proven OSS. Prefer adapting what exists. For experiments/backtests/POCs, read the mechanism's current code and define the instrumentation first (`experimentation` rule). | `dev-research`, `gitnexus-exploring` |
 | **Plan** | Surface assumptions, risks, touch-set. Non-trivial work needs approved plan or spec. | `dev-plan`, `dev-brainstorm` |
 | **Review** | Read existing code; avoid duplicate or contradictory logic. Impact analysis before edits. | `dev-audit`, `gitnexus-impact-analysis` |
 | **Implement** | Small bounded diffs; clear naming; match local conventions. | `dev-execute` |
@@ -53,6 +53,7 @@ Repo invariants live in **docs, schemas, tests, and lessons** — not in model w
 | **Parallel implementations** | New module when one exists | GitNexus search + extend existing symbols |
 | **Stale context** | Edits from outdated file state | Read-before-write; GitNexus freshness gate |
 | **Architecture drift** | Generic patterns ignore local design | Read `SYSTEM_DESIGN.md`, `AGENTS.md`, schemas first |
+| **Inference over measurement** | Root cause asserted from aggregates; experiment designed without reading the baseline; sweeps substituted for diagnosis | Measure the causal distribution first; read the mechanism's code before designing an arm; a sweep is not a diagnosis (`experimentation` rule) |
 
 **Generator ≠ verifier.** Use `review-code`, `review-security`, and deterministic checks before commit or PR.
 
@@ -124,7 +125,7 @@ Specs from brainstorming: **`docs/specs/`** — never `docs/superpowers/`.
 
 - **No patching by hardcoding** — no constants, overrides, or special-case logic.
 - **No multiple versions** — remove fallback paths and legacy logic; one canonical path.
-- **RCA first, code second** — read docs and code; diagnose before writing a fix.
+- **RCA first, code second** — read docs and code; diagnose before writing a fix. For empirical subjects (backtests, metrics, experiments) the cause must be **measured** (a distribution/attribution), not narrated — see `experimentation` rule.
 - **Single correct solution** — one clean fix; remove obsolete logic entirely.
 - **Procedures:** **`dev-debug`** (systematic root-cause investigation before any fix).
 
