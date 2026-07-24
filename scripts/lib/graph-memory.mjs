@@ -28,8 +28,12 @@ export const INDEX_VERSION = 1;
 export const INDEX_REL = join('docs', 'generated', 'graph-memory', 'index.json');
 export const MAX_SEARCH_RESULTS = 20;
 export const DEFAULT_LOCAL_AI = 'http://127.0.0.1:1000/v1';
+// Keyless direct TEI embeddings server — fallback when the gateway needs auth or is down.
+export const DEFAULT_TEI_URL = 'http://127.0.0.1:1002/v1';
 export const DEFAULT_EMBED_MODEL = 'bge-m3';
-export const EMBED_BATCH_SIZE = 64;
+export const DEFAULT_EMBED_DIM = 1024;
+// TEI (bge-m3) caps client batches at 32; the gateway path enforces the same. Larger → HTTP 413.
+export const EMBED_BATCH_SIZE = 32;
 
 
 const MUTATION_TOOL_RE = /^(add|delete|clear|write|mutate|upsert|remove)_/i;
@@ -239,6 +243,7 @@ export function buildChunksForSource(source, chunkerVersion = CHUNKER_VERSION) {
       wikilinks: source.wikilinks || [],
       embedding: null,
       embedding_model: null,
+      embedding_dim: null,
     };
   });
 }
@@ -321,18 +326,21 @@ export function buildGraphFromSources(sources, chunks) {
 }
 
 /**
- * Optional local-ai embeddings — fail-open.
- * Batches ALL chunks (paginate by EMBED_BATCH_SIZE). Never reports ok when coverage < total.
+ * Optional local-ai embeddings — fail-open (T11).
+ * Endpoint order (all fail-open): (1) gateway `baseUrl` with `Authorization: Bearer <key>` when a
+ * key is present; (2) keyless TEI `fallbackUrl` — tried ONLY when the primary yields zero vectors
+ * (e.g. gateway 401 / down). Batches ALL chunks; never reports ok when coverage < total. Enforces
+ * index-wide dim consistency: the first accepted vector sets the dim; length-mismatched vectors are
+ * rejected (a model/dim drift can't silently poison cosine).
  * @param {object[]} chunks
- * @param {{ baseUrl?: string, model?: string, timeoutMs?: number, batchSize?: number, fetchImpl?: typeof fetch }} [opts]
- * @returns {Promise<{ ok: boolean, reason: string, chunks: object[], model?: string, embedded_count: number, total: number, partial?: boolean }>}
+ * @param {{ baseUrl?: string, fallbackUrl?: string, apiKey?: string, model?: string, timeoutMs?: number, batchSize?: number, fetchImpl?: typeof fetch }} [opts]
+ * @returns {Promise<{ ok: boolean, reason: string, chunks: object[], model?: string, embedded_count: number, total: number, partial?: boolean, endpoint?: string|null, embedding_dim?: number|null }>}
  */
 export async function maybeEmbedChunks(chunks, opts = {}) {
   const total = chunks.length;
   if (process.env.LUNA_MEMORY_KG === 'off') {
     return { ok: false, reason: 'LUNA_MEMORY_KG=off', chunks, embedded_count: 0, total };
   }
-  const baseUrl = (opts.baseUrl || process.env.LUNA_LOCAL_AI_URL || DEFAULT_LOCAL_AI).replace(/\/$/, '');
   const model = opts.model || process.env.LUNA_EMBED_MODEL || DEFAULT_EMBED_MODEL;
   const timeoutMs = opts.timeoutMs ?? 2500;
   const batchSize = Math.max(1, opts.batchSize ?? EMBED_BATCH_SIZE);
@@ -343,46 +351,75 @@ export async function maybeEmbedChunks(chunks, opts = {}) {
 
   if (!total) return { ok: true, reason: 'empty', chunks, model, embedded_count: 0, total: 0 };
 
-  let embedded_count = 0;
-  let lastError = null;
+  const primaryUrl = (opts.baseUrl || process.env.LUNA_LOCAL_AI_URL || DEFAULT_LOCAL_AI).replace(/\/$/, '');
+  const primaryKey = opts.apiKey ?? process.env.LUNA_LOCAL_AI_KEY ?? '';
+  const fallbackUrl = (opts.fallbackUrl || process.env.LUNA_EMBED_URL || DEFAULT_TEI_URL).replace(/\/$/, '');
+  const endpoints = [{ url: primaryUrl, key: primaryKey }];
+  if (fallbackUrl && fallbackUrl !== primaryUrl) endpoints.push({ url: fallbackUrl, key: '' });
 
-  for (let offset = 0; offset < total; offset += batchSize) {
-    const slice = chunks.slice(offset, offset + batchSize);
-    const inputs = slice.map((c) => c.excerpt || c.content || '');
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetchImpl(`${baseUrl}/embeddings`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ model, input: inputs }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) {
-        lastError = `http_${res.status}`;
-        break;
-      }
-      const json = await res.json();
-      const data = Array.isArray(json?.data) ? json.data : [];
-      for (let i = 0; i < slice.length; i++) {
-        const emb = data[i]?.embedding;
-        if (Array.isArray(emb) && emb.length) {
-          slice[i].embedding = emb;
-          slice[i].embedding_model = model;
-          embedded_count++;
+  let dim = null;
+  let lastError = null;
+  let usedEndpoint = null;
+
+  /** Fill still-empty chunks against one endpoint; returns how many it embedded. */
+  const embedAgainst = async ({ url, key }) => {
+    let count = 0;
+    for (let offset = 0; offset < total; offset += batchSize) {
+      const pending = chunks.slice(offset, offset + batchSize).filter((c) => !Array.isArray(c.embedding));
+      if (!pending.length) continue;
+      const inputs = pending.map((c) => c.excerpt || c.content || '');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const headers = { 'content-type': 'application/json' };
+        if (key) headers.Authorization = `Bearer ${key}`;
+        const res = await fetchImpl(`${url}/embeddings`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ model, input: inputs }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) {
+          lastError = `http_${res.status}`;
+          break;
         }
-      }
-      // If the server returned fewer vectors than requested, stop and report partial.
-      if (data.length < slice.length) {
-        lastError = 'short_batch';
+        const json = await res.json();
+        const data = Array.isArray(json?.data) ? json.data : [];
+        for (let i = 0; i < pending.length; i++) {
+          const emb = data[i]?.embedding;
+          if (!Array.isArray(emb) || !emb.length) continue;
+          if (dim == null) dim = emb.length;
+          if (emb.length !== dim) {
+            lastError = `dim_mismatch:${emb.length}`;
+            continue;
+          }
+          pending[i].embedding = emb;
+          pending[i].embedding_model = model;
+          pending[i].embedding_dim = emb.length;
+          count++;
+        }
+        // Fewer vectors than requested → stop and report partial.
+        if (data.length < pending.length) {
+          lastError = 'short_batch';
+          break;
+        }
+      } catch (e) {
+        lastError = String(e?.name || e?.message || e);
         break;
+      } finally {
+        clearTimeout(timer);
       }
-    } catch (e) {
-      lastError = String(e?.name || e?.message || e);
-      break;
-    } finally {
-      clearTimeout(timer);
     }
+    return count;
+  };
+
+  let embedded_count = 0;
+  for (const ep of endpoints) {
+    const got = await embedAgainst(ep);
+    if (got > 0 && usedEndpoint == null) usedEndpoint = ep.url;
+    embedded_count += got;
+    // Only advance to the fallback when the primary produced nothing at all.
+    if (embedded_count > 0) break;
   }
 
   if (embedded_count === 0) {
@@ -392,20 +429,38 @@ export async function maybeEmbedChunks(chunks, opts = {}) {
       chunks,
       embedded_count: 0,
       total,
+      endpoint: null,
+      embedding_dim: null,
     };
   }
-  if (embedded_count < total) {
-    return {
-      ok: true,
-      reason: lastError ? `partial:${lastError}` : 'partial',
-      chunks,
-      model,
-      embedded_count,
-      total,
-      partial: true,
-    };
-  }
-  return { ok: true, reason: 'ok', chunks, model, embedded_count, total, partial: false };
+  const partial = embedded_count < total;
+  return {
+    ok: true,
+    reason: partial ? (lastError ? `partial:${lastError}` : 'partial') : 'ok',
+    chunks,
+    model,
+    embedded_count,
+    total,
+    partial,
+    endpoint: usedEndpoint,
+    embedding_dim: dim,
+  };
+}
+
+/**
+ * Embed a single query string for the semantic retrieval lane — fail-open (T19).
+ * Returns the vector, or null when embeddings are unavailable (caller falls back to lexical).
+ * Reuses the exact endpoint/auth/fallback path as rebuild embeddings.
+ * @param {string} query
+ * @param {Parameters<typeof maybeEmbedChunks>[1]} [opts]
+ * @returns {Promise<number[]|null>}
+ */
+export async function embedQuery(query, opts = {}) {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  const probe = [{ excerpt: q, embedding: null }];
+  const res = await maybeEmbedChunks(probe, opts);
+  return res.ok && Array.isArray(probe[0].embedding) ? probe[0].embedding : null;
 }
 
 /**
@@ -511,16 +566,22 @@ export async function rebuildGraphMemory(opts) {
   const warnings = [...(snap.warnings || [])];
   let embedStatus = 'skipped';
   let embedModel = null;
+  let embedDim = null;
+  let embedEndpoint = null;
   let embedded_count = 0;
   const chunk_total = chunks.length;
   if (opts.embed !== false && process.env.LUNA_MEMORY_KG !== 'off') {
     const emb = await maybeEmbedChunks(chunks, {
       fetchImpl: opts.fetchImpl,
       baseUrl: opts.localAiUrl,
+      apiKey: opts.localAiKey,
+      fallbackUrl: opts.embedFallbackUrl,
       model: opts.embedModel,
       batchSize: opts.embedBatchSize,
     });
     embedded_count = emb.embedded_count ?? 0;
+    embedDim = emb.embedding_dim ?? null;
+    embedEndpoint = emb.endpoint ?? null;
     if (emb.ok && !emb.partial && embedded_count === chunk_total) {
       embedStatus = 'ok';
       embedModel = emb.model || DEFAULT_EMBED_MODEL;
@@ -533,6 +594,10 @@ export async function rebuildGraphMemory(opts) {
     } else {
       embedStatus = 'unavailable';
       warnings.push(`embeddings degraded: ${emb.reason}`);
+    }
+    // Advisory: bge-m3 must be 1024-dim; a mismatch signals a wrong model/endpoint.
+    if (embedModel && /bge-m3/i.test(embedModel) && embedDim && embedDim !== DEFAULT_EMBED_DIM) {
+      warnings.push(`embedding dim ${embedDim} != expected ${DEFAULT_EMBED_DIM} for ${embedModel}`);
     }
   } else {
     embedStatus = 'skipped';
@@ -569,6 +634,8 @@ export async function rebuildGraphMemory(opts) {
             : 'unavailable',
       embeddings: embedStatus,
       embedding_model: embedModel,
+      embedding_dim: embedDim,
+      embedding_endpoint: embedEndpoint,
       embedded_count,
       chunk_total,
       graph_backend: 'file-json',
@@ -966,7 +1033,10 @@ export function invokeGraphMemoryTool(toolName, input = {}, ctx = {}) {
         ok: true,
         tool: toolName,
         vaultId: vault.id,
-        hits: searchIndex(index, String(input.query || ''), { limit: input.limit }),
+        hits: searchIndex(index, String(input.query || ''), {
+          limit: input.limit,
+          queryEmbedding: input.queryEmbedding,
+        }),
       };
     case 'get_context_item':
       return {

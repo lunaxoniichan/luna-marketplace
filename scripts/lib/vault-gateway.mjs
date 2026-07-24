@@ -27,6 +27,7 @@ import { buildReport } from './knowledge-dedupe.mjs';
 import {
   rebuildGraphMemory,
   invokeGraphMemoryTool,
+  embedQuery,
 } from './graph-memory.mjs';
 import {
   buildContextPack,
@@ -857,18 +858,22 @@ export function vaultGraphMemoryStatus(input, ctx = {}) {
   }
 }
 
-export function vaultGraphMemorySearch(input, ctx = {}) {
+export async function vaultGraphMemorySearch(input, ctx = {}) {
   const g = gate(input, new Set(['vaultId', 'query', 'limit']), ctx);
   if (g) return g;
   const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   try {
+    const query = String(input.query || '');
+    // Fail-open semantic lane: null when embeddings are down → lexical+authority ranking (T19).
+    const queryEmbedding = await embedQuery(query, { fetchImpl: ctx.fetchImpl });
     return invokeGraphMemoryTool(
       'search_context',
       {
         vaultId: String(input.vaultId),
-        query: String(input.query || ''),
+        query,
         limit: input.limit,
+        queryEmbedding,
       },
       { pluginRoot: ctx.pluginRoot ?? pluginRoot(), registry: ctx.registry },
     );
@@ -1094,16 +1099,20 @@ export function vaultCorrectionReject(input, ctx = {}) {
 /**
  * Cross-project reuse search (read-only). Default scope vault; registry is explicit.
  */
-export function vaultReuseSearch(input, ctx = {}) {
+export async function vaultReuseSearch(input, ctx = {}) {
   const g = gate(input, REUSE_SEARCH_KEYS, ctx);
   if (g) return g;
   const bad = assertVaultId(input.vaultId);
   if (bad) return { ok: false, error: bad };
   try {
     openVault(String(input.vaultId), ctx);
+    const query = String(input.query || '');
+    // Embed once; reuseSearch reuses the vector across every target vault (T19). Fail-open → null.
+    const queryEmbedding = await embedQuery(query, { fetchImpl: ctx.fetchImpl });
     const out = reuseSearch({
       vaultId: String(input.vaultId),
-      query: String(input.query || ''),
+      query,
+      queryEmbedding,
       scope: input.scope ? String(input.scope) : 'vault',
       limit: input.limit != null ? Number(input.limit) : undefined,
       pluginRoot: ctx.pluginRoot ?? pluginRoot(),

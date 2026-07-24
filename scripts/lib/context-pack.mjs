@@ -17,6 +17,7 @@ import { resolveVaultRoot } from './vault-crud.mjs';
 import {
   invokeGraphMemoryTool,
   rebuildGraphMemory,
+  embedQuery,
   sha256Text,
 } from './graph-memory.mjs';
 import { parseFrontmatter } from './frontmatter.mjs';
@@ -240,12 +241,19 @@ async function assemblePack(opts) {
   if (gmStatus.graphiti === 'ok') lanes.kg = 'ok';
   else if (gmStatus.graph_backend === 'file-json') lanes.kg = 'file-json'; // store present; no distinct KG query in S1a
 
+  // Semantic lane: embed the task once, only when the index actually has vectors — otherwise
+  // a lexical-only index gains nothing and we skip the network call (T19). Fail-open → null.
+  const queryEmbedding =
+    gmStatus.embeddings === 'ok' || gmStatus.embeddings === 'partial'
+      ? await embedQuery(task, { fetchImpl: opts.fetchImpl })
+      : null;
+
   // Default vault scope only — registry fan-out is Phase 4.4 product surface.
   // Even if caller passes registry, S1a still searches the authorized vault only
   // and labels scope honestly; cross-vault hits must not appear.
   const search = invokeGraphMemoryTool(
     'search_context',
-    { vaultId, query: task, limit: 40 },
+    { vaultId, query: task, limit: 40, queryEmbedding },
     ctx,
   );
 

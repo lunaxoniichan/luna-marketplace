@@ -453,6 +453,125 @@ await test('embeddings batch all chunks; partial status is honest', async () => 
   assert.equal(partial.total, 10);
 });
 
+await test('embedding auth header sent only when an API key is present (T11)', async () => {
+  const { maybeEmbedChunks } = await import('../../scripts/lib/graph-memory.mjs');
+  const okFetch = (sink) => async (_url, init) => {
+    sink.push(init.headers || {});
+    const body = JSON.parse(init.body);
+    return { ok: true, async json() { return { data: body.input.map(() => ({ embedding: [1, 2, 3] })) }; } };
+  };
+  const withKey = [];
+  await maybeEmbedChunks([{ excerpt: 'a', embedding: null }], {
+    fetchImpl: okFetch(withKey), apiKey: 'sk-xyz', baseUrl: 'http://primary/v1',
+  });
+  assert.equal(withKey[0].Authorization ?? withKey[0].authorization, 'Bearer sk-xyz');
+
+  const noKey = [];
+  await maybeEmbedChunks([{ excerpt: 'a', embedding: null }], {
+    fetchImpl: okFetch(noKey), baseUrl: 'http://primary/v1',
+  });
+  assert.ok(!(noKey[0].Authorization || noKey[0].authorization), 'no auth header without a key');
+});
+
+await test('primary 401 falls back to the keyless TEI endpoint (T11)', async () => {
+  const { maybeEmbedChunks } = await import('../../scripts/lib/graph-memory.mjs');
+  const urls = [];
+  const fetchImpl = async (url, init) => {
+    urls.push(url);
+    if (url.includes('primary')) return { ok: false, status: 401, async json() { return {}; } };
+    assert.ok(
+      !(init.headers && (init.headers.Authorization || init.headers.authorization)),
+      'fallback endpoint must be keyless',
+    );
+    const body = JSON.parse(init.body);
+    return { ok: true, async json() { return { data: body.input.map(() => ({ embedding: [0.1, 0.2, 0.3] })) }; } };
+  };
+  const res = await maybeEmbedChunks(
+    [{ excerpt: 'a', embedding: null }, { excerpt: 'b', embedding: null }],
+    { fetchImpl, apiKey: 'sk-1', baseUrl: 'http://primary/v1', fallbackUrl: 'http://fallback/v1' },
+  );
+  assert.equal(res.ok, true);
+  assert.equal(res.embedded_count, 2);
+  assert.equal(res.endpoint, 'http://fallback/v1');
+  assert.ok(urls.some((u) => u.includes('primary')) && urls.some((u) => u.includes('fallback')));
+});
+
+await test('embedding dim consistency: mismatched-length vectors rejected, dim recorded (T11)', async () => {
+  const { maybeEmbedChunks } = await import('../../scripts/lib/graph-memory.mjs');
+  const chunks = [
+    { excerpt: 'a', embedding: null },
+    { excerpt: 'b', embedding: null },
+    { excerpt: 'c', embedding: null },
+  ];
+  const dims = [4, 4, 2];
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    return {
+      ok: true,
+      async json() {
+        return { data: body.input.map((_, i) => ({ embedding: Array.from({ length: dims[i] }, () => 0.5) })) };
+      },
+    };
+  };
+  const res = await maybeEmbedChunks(chunks, { fetchImpl, baseUrl: 'http://x/v1', batchSize: 10 });
+  assert.equal(res.embedding_dim, 4, 'first accepted vector sets the index-wide dim');
+  assert.equal(res.embedded_count, 2, 'mismatched-dim vector rejected');
+  assert.equal(chunks[2].embedding, null);
+  assert.equal(res.partial, true);
+  assert.match(res.reason, /dim/);
+});
+
+await test('embeddings fail-open when primary 401 and fallback down (T11)', async () => {
+  const { maybeEmbedChunks } = await import('../../scripts/lib/graph-memory.mjs');
+  const fetchImpl = async (url) => {
+    if (url.includes('primary')) return { ok: false, status: 401, async json() { return {}; } };
+    throw new Error('ECONNREFUSED');
+  };
+  const res = await maybeEmbedChunks([{ excerpt: 'a', embedding: null }], {
+    fetchImpl, apiKey: 'k', baseUrl: 'http://primary/v1', fallbackUrl: 'http://fallback/v1',
+  });
+  assert.equal(res.ok, false);
+  assert.equal(res.embedded_count, 0);
+});
+
+await test('embedQuery fail-open returns null; embeds a single query on success (T19)', async () => {
+  const { embedQuery } = await import('../../scripts/lib/graph-memory.mjs');
+  const down = async () => { throw new Error('ECONNREFUSED'); };
+  assert.equal(await embedQuery('hello', { fetchImpl: down, fallbackUrl: 'http://primary/v1' }), null);
+  assert.equal(await embedQuery('', { fetchImpl: down }), null, 'empty query → null');
+  const up = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    return { ok: true, async json() { return { data: body.input.map(() => ({ embedding: [1, 2, 3, 4] })) }; } };
+  };
+  assert.deepEqual(await embedQuery('hello', { fetchImpl: up, baseUrl: 'http://x/v1' }), [1, 2, 3, 4]);
+});
+
+await test('searchIndex ranks by queryEmbedding when supplied — semantic lane (T19)', async () => {
+  const { searchIndex } = await import('../../scripts/lib/graph-memory.mjs');
+  const index = {
+    sources: [
+      { source_path: 'a.md', source_sha256: 'h1' },
+      { source_path: 'b.md', source_sha256: 'h2' },
+    ],
+    chunks: [
+      { id: '1', project_id: 'v', vault_id: 'v', source_path: 'a.md', source_kind: 'doc',
+        heading_path: 'A', title: 'A', lifecycle: 'official', status: 'active', scope: 'vault',
+        tokens: ['alpha'], excerpt: 'alpha', source_sha256: 'h1', content_sha256: 'c1', embedding: [1, 0, 0] },
+      { id: '2', project_id: 'v', vault_id: 'v', source_path: 'b.md', source_kind: 'doc',
+        heading_path: 'B', title: 'B', lifecycle: 'official', status: 'active', scope: 'vault',
+        tokens: ['beta'], excerpt: 'beta', source_sha256: 'h2', content_sha256: 'c2', embedding: [0, 1, 0] },
+    ],
+  };
+  // No queryEmbedding: both are equal-authority official docs → tie broken by path order (a before b).
+  const lexical = searchIndex(index, 'zzz', {});
+  assert.equal(lexical.length, 2);
+  assert.equal(lexical[0].source_path, 'a.md', 'authority tie → path order');
+  // queryEmbedding aligned to chunk 2 lifts it above the tie, with an embedding lane in why[].
+  const semantic = searchIndex(index, 'zzz', { queryEmbedding: [0, 1, 0] });
+  assert.equal(semantic[0].source_path, 'b.md', 'queryEmbedding re-ranks chunk 2 to the top');
+  assert.ok(semantic[0].why.some((w) => w.lane === 'embedding'));
+});
+
 await test('recent_changes is git-mtime ordered (newest first), honest lane (T12)', async () => {
   // Real git repo with two commits at distinct times — proves recency ordering,
   // not path order.

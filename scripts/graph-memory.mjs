@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import {
   rebuildGraphMemory,
   invokeGraphMemoryTool,
+  embedQuery,
   listAllowedVaultIds,
   READ_ONLY_TOOLS,
 } from './lib/graph-memory.mjs';
@@ -87,7 +88,8 @@ async function main() {
 
     if (cmd === 'search') {
       const query = argValue(args, '--query') || '';
-      const out = invokeGraphMemoryTool('search_context', { vaultId, query }, ctx);
+      const queryEmbedding = await embedQuery(query);
+      const out = invokeGraphMemoryTool('search_context', { vaultId, query, queryEmbedding }, ctx);
       console.log(JSON.stringify(out, null, 2));
       return;
     }

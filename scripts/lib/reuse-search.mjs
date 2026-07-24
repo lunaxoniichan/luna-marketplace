@@ -67,7 +67,12 @@ export function reuseSearch(opts) {
     let searched = false;
     let reason = null;
     try {
-      const out = invokeGraphMemoryTool('search_context', { vaultId: v.id, query, limit }, ctx);
+      // queryEmbedding (if the caller computed one) is reused across every target vault.
+      const out = invokeGraphMemoryTool(
+        'search_context',
+        { vaultId: v.id, query, limit, queryEmbedding: opts.queryEmbedding },
+        ctx,
+      );
       searched = true;
       for (const h of out.hits || []) {
         hits.push({
